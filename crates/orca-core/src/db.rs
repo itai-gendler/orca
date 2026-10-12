@@ -20,8 +20,8 @@ pub use media_artwork::migrate_inline_artwork_to_files;
 
 pub use playlists::{
     add_to_playlist, create_playlist, delete_playlist, get_playlist_export_songs,
-    get_playlist_song_ids, get_playlists, get_song_path_index, get_song_playlist_ids, remove_from_playlist,
-    rename_playlist, update_playlist_cover, Playlist,
+    get_playlist_song_ids, get_playlists, get_song_path_index, get_song_playlist_ids,
+    remove_from_playlist, rename_playlist, update_playlist_cover, Playlist,
 };
 
 mod schema;

@@ -8,12 +8,27 @@ fn song_playlist_membership_follows_add_and_remove() {
     let first = db::create_playlist(&backend.conn, "First", None).unwrap();
     let second = db::create_playlist(&backend.conn, "Second", None).unwrap();
     assert!(backend.song_playlist_ids(1).unwrap().is_empty());
-    backend.edit_playlist(crate::types::PlaylistEdit::Add { id: first, song_id: 1 }).unwrap();
-    backend.edit_playlist(crate::types::PlaylistEdit::Add { id: second, song_id: 1 }).unwrap();
+    backend
+        .edit_playlist(crate::types::PlaylistEdit::Add {
+            id: first,
+            song_id: 1,
+        })
+        .unwrap();
+    backend
+        .edit_playlist(crate::types::PlaylistEdit::Add {
+            id: second,
+            song_id: 1,
+        })
+        .unwrap();
     let mut memberships = backend.song_playlist_ids(1).unwrap();
     memberships.sort();
     assert_eq!(memberships, vec![first, second]);
-    backend.edit_playlist(crate::types::PlaylistEdit::Remove { id: first, song_id: 1 }).unwrap();
+    backend
+        .edit_playlist(crate::types::PlaylistEdit::Remove {
+            id: first,
+            song_id: 1,
+        })
+        .unwrap();
     assert_eq!(backend.song_playlist_ids(1).unwrap(), vec![second]);
 }
 
