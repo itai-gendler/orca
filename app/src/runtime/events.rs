@@ -5,7 +5,7 @@ use crate::presentation::{reset_empty_player, waveform};
 use crate::{
     errors, lyrics, metadata, models,
     protocol::{Event, Request},
-    AppState, CatalogGroup, LyricLine, OrcaTray, OrcaWindow,
+    AppState, CatalogGroup, LyricLine, OrcaTray, OrcaWindow, PlaylistChoice,
 };
 use slint::{ComponentHandle, VecModel};
 use std::{
@@ -284,6 +284,27 @@ pub(super) fn apply(
                     .into(),
                 );
             }
+            Event::PlaylistChoices(song_id, groups, selected)
+                if s.get_now().id as i64 == song_id =>
+            {
+                s.set_playlist_choices(
+                    Rc::new(VecModel::from(
+                        groups
+                            .into_iter()
+                            .map(|group| PlaylistChoice {
+                                key: group.key.clone().into(),
+                                title: group.title.into(),
+                                selected: group
+                                    .key
+                                    .parse::<i64>()
+                                    .is_ok_and(|id| selected.contains(&id)),
+                            })
+                            .collect::<Vec<_>>(),
+                    ))
+                    .into(),
+                );
+                s.set_playlist_picker_loading(false);
+            }
             Event::Jump(at, index) if at == poll_service.latest_query.load(Ordering::Relaxed) => {
                 s.set_jump_index(index as i32);
                 s.set_jump_revision(s.get_jump_revision().wrapping_add(1));
@@ -403,6 +424,7 @@ pub(super) fn apply(
             }
             Event::Error(error) => {
                 eprintln!("Orca: {error}");
+                s.set_playlist_picker_loading(false);
                 let message = errors::friendly(&error);
                 s.set_error(message.clone().into());
                 *preview.borrow_mut() = None;

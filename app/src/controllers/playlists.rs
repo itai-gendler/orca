@@ -50,6 +50,15 @@ pub(crate) fn install(ui: &OrcaWindow, tx: Sender<Request>) {
                     });
                     s.set_playlist_dialog(true);
                 }
+                "open-current" => {
+                    let song_id = s.get_now().id;
+                    if song_id > 0 {
+                        s.set_playlist_picker_loading(true);
+                        s.set_playlist_choices(Default::default());
+                        s.set_playlist_picker_open(true);
+                        let _ = tx.send(Request::PlaylistChoices(song_id as i64));
+                    }
+                }
                 "create" | "rename" => {
                     let edit = if action == "create" {
                         PlaylistEdit::Create { name: value.into() }
@@ -60,17 +69,42 @@ pub(crate) fn install(ui: &OrcaWindow, tx: Sender<Request>) {
                         }
                     };
                     let _ = tx.send(Request::Playlist(edit));
+                    if action == "create" && s.get_playlist_picker_open() && s.get_now().id > 0 {
+                        s.set_playlist_picker_loading(true);
+                        let _ = tx.send(Request::PlaylistChoices(s.get_now().id as i64));
+                    }
                 }
                 "delete" => {
                     let _ = tx.send(Request::Playlist(PlaylistEdit::Delete {
                         id: value.parse().unwrap_or(0),
                     }));
                 }
-                "add" => {
-                    let _ = tx.send(Request::Playlist(PlaylistEdit::Add {
-                        id: value.parse().unwrap_or(0),
-                        song_id: s.get_menu_song().id as i64,
-                    }));
+                "add" | "add-current" | "remove-current" => {
+                    let song_id = if action == "add-current" || action == "remove-current" {
+                        s.get_now().id
+                    } else {
+                        s.get_menu_song().id
+                    };
+                    if song_id <= 0 {
+                        return;
+                    }
+                    let id = value.parse().unwrap_or(0);
+                    let edit = if action == "remove-current" {
+                        PlaylistEdit::Remove {
+                            id,
+                            song_id: song_id as i64,
+                        }
+                    } else {
+                        PlaylistEdit::Add {
+                            id,
+                            song_id: song_id as i64,
+                        }
+                    };
+                    let _ = tx.send(Request::Playlist(edit));
+                    if action != "add" {
+                        s.set_playlist_picker_loading(true);
+                        let _ = tx.send(Request::PlaylistChoices(song_id as i64));
+                    }
                 }
                 _ => {}
             }

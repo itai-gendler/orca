@@ -40,6 +40,8 @@ pub(crate) fn install_keyboard(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Requ
                 s.set_collection_dialog(false);
             } else if s.get_playlist_dialog() {
                 s.set_playlist_dialog(false);
+            } else if s.get_playlist_picker_open() {
+                s.set_playlist_picker_open(false);
             } else if s.get_menu_open() {
                 s.set_menu_open(false);
             } else if s.get_collection_menu_open() {
@@ -87,12 +89,17 @@ pub(crate) fn install_keyboard(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Requ
                 let _ = tx.send(Request::Volume(volume as f64));
             }
             "l" if !alt => {
-                if s.get_full_player() {
-                    s.set_lyrics_open(!s.get_lyrics_open());
-                } else {
+                if !s.get_now().path.is_empty() {
                     s.set_queue_open(false);
-                    s.set_full_player(true);
-                    s.set_lyrics_open(true);
+                    s.set_playlist_picker_open(false);
+                    s.set_lyrics_open(!s.get_lyrics_open());
+                }
+            }
+            "f" if !alt => {
+                if s.get_full_player() || !s.get_now().path.is_empty() {
+                    s.set_full_player(!s.get_full_player());
+                    s.set_queue_open(false);
+                    s.set_playlist_picker_open(false);
                     ui.invoke_focus_shell();
                 }
             }

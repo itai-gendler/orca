@@ -4,6 +4,9 @@ pub(super) fn verify(case: &mut UiCase) {
     let ui = &case.ui;
     let window = &case.window;
     let state = ui.global::<AppState>();
+    let mut current = state.get_now();
+    current.path = "fixture.flac".into();
+    state.set_now(current);
     let pixels = &mut case.pixels;
     let songs = &case.songs;
     let shortcuts = &case.shortcuts;
@@ -69,10 +72,17 @@ pub(super) fn verify(case: &mut UiCase) {
         "settings",
     ] {
         state.set_full_player(false);
+        state.set_lyrics_open(false);
         state.set_view(view.into());
         state.set_detail_key("".into());
         assert!(state.invoke_keyboard("l".into(), false));
-        assert!(state.get_full_player() && state.get_lyrics_open());
+        assert!(!state.get_full_player() && state.get_lyrics_open());
+        assert!(state.invoke_keyboard("L".into(), false));
+        assert!(!state.get_lyrics_open());
+        assert!(state.invoke_keyboard("f".into(), false));
+        assert!(state.get_full_player());
+        assert!(state.invoke_keyboard("F".into(), false));
+        assert!(!state.get_full_player());
         assert!(state.invoke_keyboard("q".into(), false));
         assert!(state.get_queue_open());
         assert!(

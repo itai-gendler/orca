@@ -126,7 +126,12 @@ pub(crate) fn install(
         }
         let width = ui.window().size().width as f32 / dpr;
         let sidebar = if s.get_icon_sidebar() { 56.0 } else { 132.0 };
-        let available = (width - sidebar - 40.0).max(1.0);
+        let docked_lyrics = width >= 1240.0
+            && !s.get_full_player()
+            && s.get_lyrics_open()
+            && !s.get_queue_open()
+            && !s.get_now().path.is_empty();
+        let available = layout::browse_width(width, sidebar, docked_lyrics);
         if tracks
             .list_edge
             .replace(models::physical_artwork_edge(28, dpr))
@@ -146,11 +151,21 @@ pub(crate) fn install(
         let view = s.get_view();
         groups.circular.set(view == "artists");
         let shape_changed = groups.landscape.replace(view == "genres") != (view == "genres");
-        if related
-            .edge
-            .replace(models::physical_artwork_edge(146, dpr))
-            != models::physical_artwork_edge(146, dpr)
-        {
+        let layout::GridGeometry {
+            columns: related_columns,
+            edge: related_edge,
+        } = layout::related(
+            if !s.get_lyrics_open() && available >= 800.0 {
+                336.0
+            } else {
+                available
+            },
+            dpr,
+            s.get_lyrics_open(),
+        );
+        s.set_related_columns(related_columns as i32);
+        let related_columns_changed = related.columns.replace(related_columns) != related_columns;
+        if related.edge.replace(related_edge) != related_edge || related_columns_changed {
             related.reset();
         }
         let layout::GridGeometry {
@@ -172,21 +187,15 @@ pub(crate) fn install(
         }
         update_images |=
             events::apply(&ui, &models, &poll_tray, &neighbor_revision, &artwork_epoch);
-        if s.get_full_player()
+        let lyrics_visible = s.get_lyrics_open()
             && !s.get_window_hidden()
-            && s.get_lyrics_open()
-            && s.get_playing()
-            && preview.borrow().is_none()
-        {
+            && (s.get_full_player() || (!s.get_queue_open() && !s.get_now().path.is_empty()));
+        if lyrics_visible && s.get_playing() && preview.borrow().is_none() {
             let position = playback_clock.borrow().position(Instant::now());
             s.set_lyric_position(position);
             s.set_active_line(lyrics::active(&lines.borrow(), position));
         }
-        if s.get_full_player()
-            && !s.get_window_hidden()
-            && s.get_lyrics_open()
-            && s.get_lyrics_width() > 0.0
-        {
+        if lyrics_visible && s.get_lyrics_width() > 0.0 {
             lyric_renderer.borrow_mut().configure(
                 lyric_render::Config {
                     width: (s.get_lyrics_width() * dpr).round().clamp(32.0, 2048.0) as u32,

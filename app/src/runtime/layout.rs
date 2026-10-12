@@ -4,6 +4,18 @@ pub(super) struct GridGeometry {
     pub columns: usize,
     pub edge: u32,
 }
+pub(super) fn browse_width(width: f32, sidebar: f32, docked_lyrics: bool) -> f32 {
+    let lyrics_width = ((width - 900.0) * 0.6).clamp(300.0, 420.0);
+    (width
+        - sidebar
+        - 40.0
+        - if docked_lyrics {
+            lyrics_width + 16.0
+        } else {
+            0.0
+        })
+    .max(1.0)
+}
 pub(super) fn songs(available: f32, dpr: f32) -> GridGeometry {
     let width = (available - 44.0).max(1.0);
     let columns = (((width + 16.0) / 148.0).floor() as usize).max(1);
@@ -12,6 +24,22 @@ pub(super) fn songs(available: f32, dpr: f32) -> GridGeometry {
         edge: ((width - 16.0 * (columns - 1) as f32) / columns as f32 * dpr)
             .max(48.0)
             .round() as u32,
+    }
+}
+pub(super) fn related(available: f32, dpr: f32, shelf: bool) -> GridGeometry {
+    let columns = if shelf {
+        2
+    } else {
+        (((available + 12.0) / 200.0).ceil() as usize).clamp(1, 10)
+    };
+    let card = if shelf {
+        ((available - 48.0) / 6.0).clamp(128.0, 200.0)
+    } else {
+        ((available - 12.0 * (columns - 1) as f32) / columns as f32).clamp(128.0, 176.0)
+    };
+    GridGeometry {
+        columns,
+        edge: ((card - 16.0) * dpr.max(1.0)).ceil() as u32,
     }
 }
 pub(super) fn catalog(
@@ -92,5 +120,25 @@ mod tests {
             catalog(1920.0, 1800.0, 1.0, "folders", false, true).columns,
             1
         );
+    }
+    #[test]
+    fn docked_lyrics_use_the_visible_grid_width() {
+        let normal = browse_width(1920.0, 56.0, false);
+        let docked = browse_width(1920.0, 56.0, true);
+        assert_eq!(normal, 1824.0);
+        assert_eq!(docked, 1388.0);
+        assert!(
+            catalog(1920.0, docked, 1.0, "albums", true, false).columns
+                < catalog(1920.0, normal, 1.0, "albums", true, false).columns
+        );
+    }
+    #[test]
+    fn related_covers_match_the_visible_card_size() {
+        let grid = related(1440.0, 1.0, false);
+        let shelf = related(1100.0, 1.0, true);
+        assert!(grid.columns > 2);
+        assert_eq!(shelf.columns, 2);
+        assert_eq!(grid.edge, 154);
+        assert_eq!(shelf.edge, 160);
     }
 }

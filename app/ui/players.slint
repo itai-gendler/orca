@@ -6,7 +6,7 @@ import { IconButton, PlaybackControls, SeekBar, VolumeControl, TextButton, Ambie
 export component PlayerBar inherits Rectangle {
     background:transparent;
     Rectangle {x:0px;y:0px;height:1px;background:AppState.ink.with-alpha(0.1020);}
-    if root.width>=760px: HorizontalLayout {
+    if root.width>=860px: HorizontalLayout {
         padding-left:20px;padding-right:20px;padding-top:8px;padding-bottom:8px;spacing:16px;
         Rectangle {
             width:280px;
@@ -36,13 +36,15 @@ export component PlayerBar inherits Rectangle {
             SeekBar {x:(parent.width - self.width)/2;y:(parent.height - 76px)/2;width:min(840px,parent.width);height:28px;}
             PlaybackControls {x:(parent.width - self.width)/2;y:(parent.height - 76px)/2+32px;width:252px;height:44px;}
         }
-        Rectangle {width:116px;
+        Rectangle {width:184px;
         HorizontalLayout {y:(parent.height - 40px)/2;height:40px;spacing:8px;alignment:end;
+            IconButton {label:"Add to playlist";icon:Icons.playlistAdd;enabled:AppState.now.id>0;active:AppState.playlist-picker-open;clicked => {if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
+            IconButton {label:"Lyrics";icon:Icons.lyrics;enabled:AppState.now.path!="";active:AppState.lyrics-open;clicked => {AppState.lyrics-open=!AppState.lyrics-open;AppState.queue-open=false;AppState.playlist-picker-open=false;}}
             IconButton {label:"Queue";icon:Icons.queue;outlined:true;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;AppState.command("queue-preview",0);}}
             VolumeControl {y:4px;}
         }}
     }
-    if root.width<760px: VerticalLayout {
+    if root.width<860px: VerticalLayout {
         padding:12px;spacing:4px;
         HorizontalLayout {height:AppState.quality-info ? 40px : 28px;spacing:10px;
             if AppState.compact-artwork: Rectangle {width:parent.height;height:parent.height;border-radius:3px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:AppState.now.cover;missing:AppState.now.cover-missing;image-fit:cover;}TouchArea {clicked=>{AppState.full-player=true;}}}
@@ -50,12 +52,106 @@ export component PlayerBar inherits Rectangle {
                 Text {text:AppState.now.title=="" ? "No track playing" : AppState.now.title;color:AppState.ink;font-size:14px*AppState.scale;font-weight:700;overflow:elide;TouchArea {clicked=>{AppState.unfocus();AppState.full-player=true;}}}
                 if AppState.quality-info: Text {text:AppState.now.quality;color:AppState.ink.with-alpha(AppState.light-theme ? 0.65 : 0.72);font-size:10px*AppState.scale;overflow:elide;}
             }
+            IconButton {label:"Add to playlist";width:28px;height:28px;icon-size:18px;icon:Icons.playlistAdd;enabled:AppState.now.id>0;active:AppState.playlist-picker-open;clicked=>{if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
+            IconButton {label:"Lyrics";width:28px;height:28px;icon-size:18px;icon:Icons.lyrics;enabled:AppState.now.path!="";active:AppState.lyrics-open;clicked=>{AppState.lyrics-open=!AppState.lyrics-open;AppState.queue-open=false;AppState.playlist-picker-open=false;}}
             IconButton {label:"Queue";width:28px;height:28px;icon:Icons.queue;active:AppState.queue-open;clicked=>{AppState.queue-open=!AppState.queue-open;AppState.command("queue-preview",0);}}
             VolumeControl {width:28px;height:28px;}
         }
         SeekBar {height:24px;}
         PlaybackControls {height:44px;}
     }
+}
+
+component LyricsViewport inherits Rectangle {
+    in property<bool> dark;
+    in property<length> font-size:32px;
+    private property<color> ink:root.dark ? white : AppState.ink;
+    clip:true;
+    init=>{AppState.lyrics-width=self.width/1px;AppState.lyric-font-size=self.font-size/1px;}
+    changed width=>{AppState.lyrics-width=self.width/1px;}
+    changed font-size=>{AppState.lyric-font-size=self.font-size/1px;}
+    if AppState.lyrics.length==0: Text {text:AppState.lyrics-status;color:root.ink.with-alpha(0.5020);horizontal-alignment:center;vertical-alignment:center;}
+    resume-follow:=Timer {interval:5000ms;triggered=>{lyrics.follow=true;lyrics.follow-current();}}
+    motion:=ScrollMotion {offset<=>lyrics.content-y;minimum:-max(0px,lyrics.content-height - lyrics.height);page:lyrics.height;}
+    lyrics := Flickable {
+        mouse-drag-pan-enabled:false;
+        content-width:self.width;
+        content-height:AppState.lyric-offset(AppState.lyrics.length,AppState.lyric-layout-revision)*1px;
+        private property <bool> follow:true;
+        function follow-current() {
+            let offset=AppState.lyric-offset(max(0,AppState.active-line),AppState.lyric-layout-revision)*1px;
+            let next=AppState.lyric-offset(max(0,AppState.active-line)+1,AppState.lyric-layout-revision)*1px;
+            motion.snap(-clamp(offset - self.height*0.42+min(next - offset,self.height*0.8)/2,0px,max(0px,self.content-height - self.height)));
+        }
+        function wheel-scroll(delta:length) {
+            self.follow=false;resume-follow.restart();
+            motion.nudge(delta);
+        }
+        init=> {self.follow-current();}
+        changed content-height=> {if self.follow {self.follow-current();}}
+        private property <int> active-line: AppState.active-line;
+        changed active-line => {if self.follow {self.follow-current();}}
+        private property<int> layout-revision:AppState.lyric-layout-revision;
+        changed layout-revision=>{if self.follow {self.follow-current();}}
+        for line[index] in AppState.lyrics: Rectangle {
+            y:AppState.lyric-offset(index,AppState.lyric-layout-revision)*1px;
+            width:lyrics.width;
+            height:max(84px,(AppState.lyric-offset(index+1,AppState.lyric-layout-revision) - AppState.lyric-offset(index,AppState.lyric-layout-revision))*1px);
+            private property<bool> in-view:self.y+self.height>=-lyrics.content-y - 84px && self.y<=-lyrics.content-y+lyrics.height+84px;
+            private property<LyricRender> rendered:self.in-view ? AppState.lyric-render(index,AppState.lyric-render-revision) : AppState.lyric-render(-1,AppState.lyric-render-revision);
+            if in-view && rendered.bitmap.width==0: Text {x:0px;y:0px;width:parent.width;height:parent.height;text:line.text;color:root.ink;font-size:AppState.lyric-font-size*1px;font-weight:900;
+                wrap:word-wrap;horizontal-alignment:center;vertical-alignment:center;
+                opacity:AppState.active-line==index ? 1 : abs(AppState.active-line - index)==1 ? 0.34 : 0.18;
+                }
+            if in-view && rendered.bitmap.width>0: karaoke := Rectangle {
+                Image {x:0px;y:0px;width:parent.width;height:parent.height;source:rendered.bitmap;colorize:root.dark ? transparent : root.ink;image-fit:fill;opacity:AppState.active-line==index ? (line.words.length==0 ? 1 : 0.24) : abs(AppState.active-line - index)==1 ? 0.34 : 0.18;}
+                for span in (AppState.active-line==index ? rendered.spans : []): Rectangle {
+                    private property<float> progress:AppState.active-line==index ? clamp((AppState.lyric-position - span.time)/max(1,span.end-time - span.time),0,1) : 0;
+                    x:(span.x+(span.rtl ? span.width*(1 - self.progress) : 0))*1px;y:span.y*1px;
+                    width:span.width*self.progress*1px;height:span.height*1px;clip:true;visible:AppState.active-line==index && self.progress>0;
+                    Image {x:-parent.x;y:-parent.y;width:karaoke.width;height:karaoke.height;source:rendered.bitmap;colorize:root.dark ? transparent : root.ink;image-fit:fill;}
+                }
+            }
+            TouchArea {clicked => {if line.time>=0 {AppState.seek(line.time);lyrics.follow=true;resume-follow.stop();}}
+                scroll-event(event)=>{lyrics.wheel-scroll(event.delta-y);return accept;}}
+        }
+    }
+}
+
+export component InlineLyricsPanel inherits Rectangle {
+    in property<length> available-width;
+    in property<length> available-height;
+    in property<length> panel-width;
+    width:min(root.panel-width,root.available-width - 32px);
+    height:root.available-height;
+    background:AppState.base;border-radius:8px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);clip:true;
+    Text {x:20px;y:16px;width:parent.width - 76px;height:32px;text:"LYRICS";color:AppState.ink.with-alpha(0.65);font-size:12px;font-weight:700;vertical-alignment:center;}
+    IconButton {label:"Close lyrics";x:parent.width - 48px;y:12px;width:32px;height:32px;icon:Icons.close;clicked=>{AppState.lyrics-open=false;}}
+    LyricsViewport {x:20px;y:60px;width:parent.width - 40px;height:parent.height - 76px;font-size:clamp(root.width*0.065,23px,30px)*AppState.scale;}
+}
+
+export component PlaylistPicker inherits Rectangle {
+    width:300px;
+    height:min(392px,max(172px,AppState.playlist-choices.length*44px+108px));
+    background:AppState.panel;border-radius:8px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);
+    Text {x:16px;y:12px;width:parent.width - 56px;height:24px;text:"Add to playlist";color:AppState.ink;font-size:15px;font-weight:700;overflow:elide;}
+    Text {x:16px;y:36px;width:parent.width - 32px;height:18px;text:AppState.now.title;color:AppState.ink.with-alpha(0.65);font-size:12px;overflow:elide;}
+    IconButton {layer:"menu";label:"Close";x:parent.width - 40px;y:8px;width:28px;height:28px;icon-size:16px;icon:Icons.close;clicked=>{AppState.playlist-picker-open=false;}}
+    if AppState.playlist-picker-loading && AppState.playlist-choices.length==0: Text {x:16px;y:60px;width:parent.width - 32px;height:24px;text:"Loading playlists…";color:AppState.ink.with-alpha(0.65);font-size:12px;vertical-alignment:center;}
+    if !AppState.playlist-picker-loading && AppState.playlist-choices.length==0: Text {x:16px;y:60px;width:parent.width - 32px;height:24px;text:"No playlists yet";color:AppState.ink.with-alpha(0.65);font-size:12px;vertical-alignment:center;}
+    if AppState.playlist-choices.length>0: ListView {x:8px;y:60px;width:parent.width - 16px;height:parent.height - 108px;horizontal-scrollbar-policy:always-off;
+        for playlist in AppState.playlist-choices: Rectangle {
+            height:44px;border-radius:6px;background:pointer.has-hover ? AppState.ink.with-alpha(0.0706) : transparent;
+            accessible-role:button;accessible-label:(playlist.selected ? "Remove from " : "Add to ")+playlist.title;
+            accessible-action-default=>{AppState.playlist-action(playlist.selected ? "remove-current" : "add-current",playlist.key);}
+            row-focus:=ActionFocus {layer:"menu";activated=>{AppState.playlist-action(playlist.selected ? "remove-current" : "add-current",playlist.key);}}
+            Text {x:12px;width:parent.width - 50px;height:parent.height;text:playlist.title;color:AppState.ink;font-size:13px;overflow:elide;vertical-alignment:center;}
+            Rectangle {x:parent.width - 28px;y:13px;width:18px;height:18px;border-radius:9px;border-width:1px;border-color:playlist.selected ? AppState.accent : AppState.ink.with-alpha(0.48);background:playlist.selected ? AppState.accent : transparent;
+                if playlist.selected: Text {text:"✓";color:AppState.inverse-ink;font-size:12px;font-weight:700;horizontal-alignment:center;vertical-alignment:center;}}
+            pointer:=TouchArea {clicked=>{AppState.playlist-action(playlist.selected ? "remove-current" : "add-current",playlist.key);}}
+        }
+    }
+    TextButton {layer:"menu";x:12px;y:parent.height - 44px;width:parent.width - 24px;height:32px;text:"New playlist";clicked=>{AppState.playlist-action("new-dialog","");}}
 }
 
 export component FullPlayer inherits Rectangle {
@@ -95,59 +191,9 @@ export component FullPlayer inherits Rectangle {
             PlaybackControls {layer:"full";dark:AppState.full-player-dark;large:!AppState.lyrics-open && root.height>=720px;height:root.height<720px ? 44px : 56px;}
         }
     }
-    if AppState.lyrics-open: Rectangle {
-        clip:true;
+    if AppState.lyrics-open: LyricsViewport {
         x:content.x+content.width+32px;y:104px;width:root.width - self.x - 56px;height:root.height - 176px;
-        private property<length> font-size:clamp(root.width*0.0265,30.4px,50.4px)*AppState.scale;
-        init=>{AppState.lyrics-width=self.width/1px;AppState.lyric-font-size=self.font-size/1px;}
-        changed width=>{AppState.lyrics-width=self.width/1px;}
-        changed font-size=>{AppState.lyric-font-size=self.font-size/1px;}
-        if AppState.lyrics.length==0: Text {text:AppState.lyrics-status;color:root.ink.with-alpha(0.5020);horizontal-alignment:center;vertical-alignment:center;}
-        resume-follow:=Timer {interval:5000ms;triggered=>{lyrics.follow=true;lyrics.follow-current();}}
-        motion:=ScrollMotion {offset<=>lyrics.content-y;minimum:-max(0px,lyrics.content-height - lyrics.height);page:lyrics.height;}
-        lyrics := Flickable {
-            mouse-drag-pan-enabled:false;
-            content-width:self.width;
-            content-height:AppState.lyric-offset(AppState.lyrics.length,AppState.lyric-layout-revision)*1px;
-            private property <bool> follow:true;
-            function follow-current() {
-                let offset=AppState.lyric-offset(max(0,AppState.active-line),AppState.lyric-layout-revision)*1px;
-                let next=AppState.lyric-offset(max(0,AppState.active-line)+1,AppState.lyric-layout-revision)*1px;
-                motion.snap(-clamp(offset - self.height*0.42+min(next - offset,self.height*0.8)/2,0px,max(0px,self.content-height - self.height)));
-            }
-            function wheel-scroll(delta:length) {
-                self.follow=false;resume-follow.restart();
-                motion.nudge(delta);
-            }
-            init=> {self.follow-current();}
-            changed content-height=> {if self.follow {self.follow-current();}}
-            private property <int> active-line: AppState.active-line;
-            changed active-line => {if self.follow {self.follow-current();}}
-            private property<int> layout-revision:AppState.lyric-layout-revision;
-            changed layout-revision=>{if self.follow {self.follow-current();}}
-            for line[index] in AppState.lyrics: Rectangle {
-                y:AppState.lyric-offset(index,AppState.lyric-layout-revision)*1px;
-                width:lyrics.width;
-                height:max(84px,(AppState.lyric-offset(index+1,AppState.lyric-layout-revision) - AppState.lyric-offset(index,AppState.lyric-layout-revision))*1px);
-                private property<bool> in-view:self.y+self.height>=-lyrics.content-y - 84px && self.y<=-lyrics.content-y+lyrics.height+84px;
-                private property<LyricRender> rendered:self.in-view ? AppState.lyric-render(index,AppState.lyric-render-revision) : AppState.lyric-render(-1,AppState.lyric-render-revision);
-                if in-view && rendered.bitmap.width==0: Text {x:0px;y:0px;width:parent.width;height:parent.height;text:line.text;color:root.ink;font-size:AppState.lyric-font-size*1px;font-weight:900;
-                    wrap:word-wrap;horizontal-alignment:center;vertical-alignment:center;
-                    opacity:AppState.active-line==index ? 1 : abs(AppState.active-line - index)==1 ? 0.34 : 0.18;
-                    }
-                if in-view && rendered.bitmap.width>0: karaoke := Rectangle {
-                    Image {x:0px;y:0px;width:parent.width;height:parent.height;source:rendered.bitmap;colorize:AppState.full-player-dark ? transparent : root.ink;image-fit:fill;opacity:AppState.active-line==index ? (line.words.length==0 ? 1 : 0.24) : abs(AppState.active-line - index)==1 ? 0.34 : 0.18;}
-                    for span in (AppState.active-line==index ? rendered.spans : []): Rectangle {
-                        private property<float> progress:AppState.active-line==index ? clamp((AppState.lyric-position - span.time)/max(1,span.end-time - span.time),0,1) : 0;
-                        x:(span.x+(span.rtl ? span.width*(1 - self.progress) : 0))*1px;y:span.y*1px;
-                        width:span.width*self.progress*1px;height:span.height*1px;clip:true;visible:AppState.active-line==index && self.progress>0;
-                        Image {x:-parent.x;y:-parent.y;width:karaoke.width;height:karaoke.height;source:rendered.bitmap;colorize:AppState.full-player-dark ? transparent : root.ink;image-fit:fill;}
-                    }
-                }
-                TouchArea {clicked => {if line.time>=0 {AppState.seek(line.time);lyrics.follow=true;resume-follow.stop();}}
-                    scroll-event(event)=>{lyrics.wheel-scroll(event.delta-y);return accept;}}
-            }
-        }
+        font-size:clamp(root.width*0.0265,30.4px,50.4px)*AppState.scale;dark:AppState.full-player-dark;
     }
     VolumeControl {layer:"full";dark:AppState.full-player-dark;x:parent.width - 72px;y:parent.height - 72px;}
 }

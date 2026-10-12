@@ -108,13 +108,14 @@ export component SettingsView inherits Rectangle {
                     ComboBox {enabled:AppState.focus-layer=="browse";model:["Waveform","Classic"];current-index:AppState.seek-style=="waveform" ? 0 : 1;selected(value) => {AppState.seek-style=self.current-index==0 ? "waveform" : "classic";AppState.save-settings();}}}
                 if AppState.setting-matches("Keyboard shortcuts",AppState.search): Text {text:"Keyboard shortcuts";color:AppState.ink;font-size:14px;font-weight:600;}
                 if AppState.setting-matches("Keyboard shortcuts",AppState.search): Rectangle {
-                    height:420px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);border-radius:6px;
+                    height:460px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);border-radius:6px;
                     VerticalLayout {spacing:0px;alignment:start;
                         ShortcutRow {title:"Play or pause";keys:["Space"];}
                         ShortcutRow {title:"Next song";keys:["Alt","N"];}
                         ShortcutRow {title:"Previous song";keys:["Alt","P"];}
                         ShortcutRow {title:"Toggle mute";keys:["M"];}
-                        ShortcutRow {title:"Open player lyrics or toggle lyrics";keys:["L"];}
+                        ShortcutRow {title:"Show or hide lyrics";keys:["L"];}
+                        ShortcutRow {title:"Open or close full player";keys:["F"];}
                         ShortcutRow {title:"Focus or leave search";keys:["Ctrl","K"];}
                         ShortcutRow {title:"Show or hide queue";keys:["Q"];}
                         ShortcutRow {title:"Toggle full screen";keys:["F11"];}

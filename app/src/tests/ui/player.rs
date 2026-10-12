@@ -9,6 +9,112 @@ pub(super) fn verify(case: &mut UiCase) {
     window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: 1.0 });
     window.set_size(slint::PhysicalSize::new(1280, 820));
     state.set_blurred_background(false);
+    let previous_song = state.get_now();
+    state.set_full_player(false);
+    state.set_lyrics_open(false);
+    state.set_queue_open(false);
+    state.set_view("songs".into());
+    state.set_now(Song {
+        id: 42,
+        path: "playing.flac".into(),
+        title: "Playing song".into(),
+        ..Default::default()
+    });
+    let (playlist_tx, playlist_rx) = std::sync::mpsc::channel();
+    controllers::playlists::install(ui, playlist_tx);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "player-controls-smoke");
+    click(window, 1104.0, 772.0);
+    assert!(state.get_playlist_picker_open());
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::PlaylistChoices(42)
+    ));
+    state.set_playlist_choices(
+        Rc::new(VecModel::from(vec![
+            PlaylistChoice {
+                key: "7".into(),
+                title: "Favorites".into(),
+                selected: false,
+            },
+            PlaylistChoice {
+                key: "8".into(),
+                title: "Road trip".into(),
+                selected: true,
+            },
+        ]))
+        .into(),
+    );
+    state.set_playlist_picker_loading(false);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "playlist-picker-toggle");
+    click(window, 1100.0, 584.0);
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::Playlist(crate::protocol::PlaylistEdit::Add { id: 7, song_id: 42 })
+    ));
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::PlaylistChoices(42)
+    ));
+    assert!(state.get_playlist_picker_open());
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    click(window, 1100.0, 634.0);
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::Playlist(crate::protocol::PlaylistEdit::Remove { id: 8, song_id: 42 })
+    ));
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::PlaylistChoices(42)
+    ));
+    click(window, 800.0, 400.0);
+    assert!(!state.get_playlist_picker_open());
+    click(window, 1152.0, 772.0);
+    assert!(state.get_lyrics_open());
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "inline-lyrics-docked");
+    assert!(state.get_lyrics_width() > 200.0);
+    click(window, 1232.0, 48.0);
+    assert!(!state.get_lyrics_open());
+    window.set_size(slint::PhysicalSize::new(560, 820));
+    let mut narrow_pixels = vec![slint::Rgb8Pixel::default(); 560 * 820];
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut narrow_pixels, 560);
+    });
+    let bytes: Vec<u8> = narrow_pixels.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+    save_screenshot(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/slint/test-artifacts/ui/player-controls-narrow.png"),
+        &bytes,
+        560,
+        820,
+        image::ColorType::Rgb8,
+    )
+    .unwrap();
+    click(window, 420.0, 698.0);
+    assert!(state.get_playlist_picker_open());
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::PlaylistChoices(42)
+    ));
+    click(window, 100.0, 500.0);
+    assert!(!state.get_playlist_picker_open());
+    click(window, 459.0, 698.0);
+    assert!(state.get_lyrics_open());
+    click(window, 512.0, 48.0);
+    assert!(!state.get_lyrics_open());
+    window.set_size(slint::PhysicalSize::new(1280, 820));
+    state.set_playlists(Default::default());
+    state.set_now(previous_song);
     state.set_volume(0.5);
     let weak_volume = ui.as_weak();
     let volume_changes = Rc::new(Cell::new(0));
@@ -23,27 +129,27 @@ pub(super) fn verify(case: &mut UiCase) {
         renderer.render(pixels, 1280);
     });
     window.dispatch_event(WindowEvent::PointerMoved {
-        position: slint::LogicalPosition::new(1224.0, 764.0),
+        position: slint::LogicalPosition::new(1244.0, 764.0),
     });
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
     window.dispatch_event(WindowEvent::PointerMoved {
-        position: slint::LogicalPosition::new(1224.0, 666.0),
+        position: slint::LogicalPosition::new(1244.0, 666.0),
     });
     std::thread::sleep(Duration::from_millis(650));
     slint::platform::update_timers_and_animations();
-    click(window, 1224.0, 622.0);
+    click(window, 1244.0, 622.0);
     assert!(
         state.get_volume() > 0.8,
         "volume popup must remain interactive while hovered"
     );
     window.dispatch_event(WindowEvent::PointerPressed {
-        position: slint::LogicalPosition::new(1224.0, 666.0),
+        position: slint::LogicalPosition::new(1244.0, 666.0),
         button: PointerEventButton::Left,
     });
     window.dispatch_event(WindowEvent::PointerMoved {
-        position: slint::LogicalPosition::new(1224.0, 712.0),
+        position: slint::LogicalPosition::new(1244.0, 712.0),
     });
     assert!(
         state.get_volume() < 0.4,
@@ -52,7 +158,7 @@ pub(super) fn verify(case: &mut UiCase) {
     std::thread::sleep(Duration::from_millis(650));
     slint::platform::update_timers_and_animations();
     window.dispatch_event(WindowEvent::PointerReleased {
-        position: slint::LogicalPosition::new(1224.0, 712.0),
+        position: slint::LogicalPosition::new(1244.0, 712.0),
         button: PointerEventButton::Left,
     });
     assert!(volume_changes.get() >= 3);

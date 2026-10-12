@@ -238,6 +238,11 @@ pub(super) fn run(worker: LibraryWorker) {
                         let _ = events.send(Event::Playlists(backend.groups("playlists", "")?));
                         let _ = events.send(Event::Context(backend.track(&target)?));
                     }
+                    Request::PlaylistChoices(song_id) => {
+                        let groups = backend.groups("playlists", "")?;
+                        let selected = backend.song_playlist_ids(song_id)?;
+                        let _ = events.send(Event::PlaylistChoices(song_id, groups, selected));
+                    }
                     Request::Playlist(edit) => {
                         let action = backend.edit_playlist(edit)?;
                         let _ = events.send(Event::Playlists(backend.groups("playlists", "")?));

@@ -1,17 +1,17 @@
 import { LineEdit, ComboBox, Palette } from "std-widgets.slint";
-import { AppState, Song, CatalogGroup, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft } from "state.slint";
+import { AppState, Song, CatalogGroup, PlaylistChoice, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft } from "state.slint";
 import { Icons } from "icons.slint";
 import { SidebarLogos } from "sidebar-logos.slint";
 import { IconButton, TextButton, SearchField, AmbientBackground, ActionFocus } from "controls.slint";
 import { SongsView, CatalogView, CatalogDetails } from "library.slint";
 import { FoldersView } from "folders.slint";
-import { PlayerBar, FullPlayer, QueuePanel } from "players.slint";
+import { PlayerBar, FullPlayer, QueuePanel, InlineLyricsPanel, PlaylistPicker } from "players.slint";
 import { SettingsView } from "settings.slint";
 import { MetadataEditor, TrackMenu, PlaylistDialog, CollectionDialog, CollectionMenu } from "dialogs.slint";
 import "assets/fonts/PlusJakartaSans-Regular.ttf";
 import "assets/fonts/PlusJakartaSans-SemiBold.ttf";
 import "assets/fonts/PlusJakartaSans-Bold.ttf";
-export { AppState, Song, CatalogGroup, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft }
+export { AppState, Song, CatalogGroup, PlaylistChoice, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft }
 
 export component OrcaWindow inherits Window {
     title:"Orca";icon:SidebarLogos.logo-32;preferred-width:1280px;preferred-height:820px;min-width:500px;min-height:600px;
@@ -28,7 +28,9 @@ export component OrcaWindow inherits Window {
     changed dialog-active=>{if !AppState.modal-open {root.focus-shell();}}
     private property<bool> compact:root.width<1024px;
     private property<bool> narrow:root.width<680px;
-    private property<length> player-height:root.width - root.sidebar-width<760px ? (AppState.quality-info ? 148px : 136px) : 96px;
+    private property<length> player-height:root.width - root.sidebar-width<860px ? (AppState.quality-info ? 148px : 136px) : 96px;
+    private property<bool> inline-lyrics:!AppState.full-player && AppState.now.path!="" && AppState.lyrics-open && !AppState.queue-open;
+    private property<length> inline-lyrics-width:clamp((root.width - 900px)*0.6,300px,420px);
     private property<length> header-height:root.narrow && AppState.view=="songs" ? 168px : root.compact ? 116px : 64px;
     keyboard-root:=FocusScope {
         focus-on-tab-navigation:false;
@@ -67,7 +69,7 @@ export component OrcaWindow inherits Window {
             IconButton {label:"Refresh library";x:8px;y:parent.height - 60px;icon:Icons.refresh;clicked => {AppState.refresh();}}
         }
         Rectangle {
-            x:root.sidebar-width+20px;y:20px;width:root.width - self.x - 20px;height:root.height - root.player-height - 40px;
+            x:root.sidebar-width+20px;y:20px;width:root.width - self.x - 20px - (root.inline-lyrics && root.width>=1240px ? root.inline-lyrics-width + 16px : 0px);height:root.height - root.player-height - 40px;
             Rectangle {x:0px;y:0px;height:32px;clip:true;width:root.compact ? parent.width - (AppState.view=="playlists" ? 180px : 0px) : max(120px,parent.width - 650px);
                 for title[index] in ["Main Library","Artists","Albums","Genres","Playlists","Folders","Settings"]: Rectangle {
                     if AppState.detail-key=="" && AppState.view==["songs","artists","albums","genres","playlists","folders","settings"][index]: Text {
@@ -115,8 +117,11 @@ export component OrcaWindow inherits Window {
         changed active=>{if AppState.full-player {full-focus.focus();} else if !AppState.search-focus-pending {shell.focus();}}
         if AppState.full-player: FullPlayer {}
     }
+    if root.inline-lyrics: InlineLyricsPanel {available-width:root.width - root.sidebar-width;available-height:root.height - root.player-height - 40px;panel-width:root.inline-lyrics-width;x:root.width - self.width - 16px;y:20px;}
     if AppState.queue-open: TouchArea {clicked => {AppState.queue-open=false;}}
     if AppState.queue-open: QueuePanel {available-width:root.width;available-height:root.height;x:root.width - self.width - 24px;y:root.height - self.height - 24px;}
+    if !AppState.full-player && AppState.playlist-picker-open: TouchArea {clicked=>{AppState.playlist-picker-open=false;}}
+    if !AppState.full-player && AppState.playlist-picker-open: PlaylistPicker {x:root.width - self.width - 24px;y:root.height - root.player-height - self.height - 12px;}
     if AppState.menu-open: TouchArea {clicked => {AppState.menu-open=false;}}
     if AppState.menu-open: TrackMenu {x:clamp(AppState.menu-x*1px,8px,root.width - self.width - 8px);y:clamp(AppState.menu-y*1px,8px,root.height - self.height - 8px);}
     if AppState.metadata-open: Rectangle {
