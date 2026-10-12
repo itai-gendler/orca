@@ -13,6 +13,7 @@ pub(super) fn verify_narrow_details(case: &mut UiCase) {
     state.set_collection_dialog(false);
     state.set_playlist_dialog(false);
     state.set_queue_open(false);
+    state.set_lyrics_open(false);
     state.set_menu_open(false);
     state.set_collection_menu_open(false);
     state.set_light_theme(false);
@@ -34,20 +35,38 @@ pub(super) fn verify_narrow_details(case: &mut UiCase) {
         ))
         .into(),
     );
-    state.set_related_albums(
-        Rc::new(VecModel::from(vec![Rc::new(VecModel::from(vec![
-            CatalogGroup {
-                key: "Compilation".into(),
-                title: "Compilation".into(),
-                secondary: "Various Artists".into(),
-                count: 2,
-                ..Default::default()
+    let albums = (0..6)
+        .map(|index| CatalogGroup {
+            key: if index == 0 {
+                "Compilation".into()
+            } else {
+                format!("Album {index}").into()
             },
-            CatalogGroup::default(),
-        ]))
-        .into()]))
-        .into(),
-    );
+            title: if index == 0 {
+                "Compilation".into()
+            } else {
+                format!("Album {index}").into()
+            },
+            secondary: "Various Artists".into(),
+            count: 2,
+            ..Default::default()
+        })
+        .collect::<Vec<_>>();
+    let album_rows = |columns: usize| {
+        Rc::new(VecModel::from(
+            albums
+                .chunks(columns)
+                .map(|chunk| {
+                    let mut row = chunk.to_vec();
+                    row.resize(columns, CatalogGroup::default());
+                    Rc::new(VecModel::from(row)).into()
+                })
+                .collect::<Vec<_>>(),
+        ))
+        .into()
+    };
+    state.set_related_columns(4);
+    state.set_related_albums(album_rows(4));
     let opened = Rc::new(RefCell::new(Vec::new()));
     let observed = opened.clone();
     state.on_open_group(move |key, secondary, _| {
@@ -99,10 +118,99 @@ pub(super) fn verify_narrow_details(case: &mut UiCase) {
     click(window, 150.0, 500.0);
     assert_eq!(
         opened.borrow().last(),
-        Some(&("Compilation".into(), "Various Artists".into())),
-        "scrolling past songs must expose clickable albums at narrow widths"
+        Some(&("Album 4".into(), "Various Artists".into())),
+        "the multi-column grid must expose albums past the songs"
+    );
+    state.set_view("artists".into());
+    let mut now = state.get_now();
+    now.path = "".into();
+    state.set_now(now);
+    state.set_lyrics_open(true);
+    state.set_related_columns(2);
+    state.set_related_albums(album_rows(2));
+    window.dispatch_event(WindowEvent::PointerScrolled {
+        position: slint::LogicalPosition::new(350.0, 480.0),
+        delta_x: 0.0,
+        delta_y: -9999.0,
+    });
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 800);
+    });
+    click(window, 760.0, 429.0);
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 800);
+    });
+    click(window, 650.0, 500.0);
+    assert_eq!(
+        opened.borrow().last(),
+        Some(&("Album 5".into(), "Various Artists".into())),
+        "the horizontal album shelf must expose albums beyond the visible width"
     );
     window.set_size(slint::PhysicalSize::new(1400, 820));
+    pixels.resize(1400 * 820, slint::Rgb8Pixel::default());
+    window.dispatch_event(WindowEvent::PointerScrolled {
+        position: slint::LogicalPosition::new(900.0, 450.0),
+        delta_x: 0.0,
+        delta_y: -9999.0,
+    });
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 1400);
+    });
+    let bytes: Vec<u8> = pixels.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+    save_screenshot(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/slint/test-artifacts/ui/wide-related.png"),
+        &bytes,
+        1400,
+        820,
+        image::ColorType::Rgb8,
+    )
+    .unwrap();
+    state.set_lyrics_open(false);
+    state.set_related_columns(2);
+    state.set_related_albums(album_rows(2));
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 1400);
+    });
+    let bytes: Vec<u8> = pixels.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+    save_screenshot(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/slint/test-artifacts/ui/wide-related-sidebar.png"),
+        &bytes,
+        1400,
+        820,
+        image::ColorType::Rgb8,
+    )
+    .unwrap();
+    click(window, 1120.0, 460.0);
+    assert_eq!(
+        opened.borrow().last(),
+        Some(&(String::from("Compilation"), String::from("Various Artists"))),
+        "related albums must be selectable in the right sidebar when lyrics are closed"
+    );
+    window.set_size(slint::PhysicalSize::new(960, 820));
+    pixels.resize(960 * 820, slint::Rgb8Pixel::default());
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut pixels, 960);
+    });
+    let bytes: Vec<u8> = pixels.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+    save_screenshot(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/slint/test-artifacts/ui/medium-related-sidebar.png"),
+        &bytes,
+        960,
+        820,
+        image::ColorType::Rgb8,
+    )
+    .unwrap();
+    click(window, 810.0, 460.0);
+    assert_eq!(
+        opened.borrow().last(),
+        Some(&(String::from("Album 1"), String::from("Various Artists"))),
+        "related albums must remain in the sidebar at a medium window width"
+    );
+    window.set_size(slint::PhysicalSize::new(1400, 820));
+    pixels.resize(1400 * 820, slint::Rgb8Pixel::default());
     state.set_view("folders".into());
     state.set_detail_key("Music".into());
     state.set_related_albums(Default::default());
@@ -117,7 +225,6 @@ pub(super) fn verify_narrow_details(case: &mut UiCase) {
         .into()]))
         .into(),
     );
-    pixels.resize(1400 * 820, slint::Rgb8Pixel::default());
     window.draw_if_needed(|renderer| {
         renderer.render(&mut pixels, 1400);
     });

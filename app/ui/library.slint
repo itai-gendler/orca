@@ -72,23 +72,50 @@ component CatalogTile inherits Rectangle {
     }
 }
 
-component RelatedAlbums inherits Rectangle {
+component RelatedAlbumCard inherits Rectangle {
+    in property<CatalogGroup> album;
+    in property<length> card-width;
     callback wheel-scroll(length);
-    out property<length> content-height:36px+AppState.related-albums.length*((AppState.browse-artwork ? (root.width - 12px)/2 : 0px)+60px);
-    Text {x:0px;y:0px;width:root.width;height:28px;text:AppState.view=="albums" ? "More by "+AppState.detail-secondary : "Albums";color:AppState.ink;font-size:18px;font-weight:700;overflow:elide;}
-    VerticalLayout {x:0px;y:36px;width:root.width;height:root.content-height - 36px;spacing:0px;
-        for row in AppState.related-albums: HorizontalLayout {spacing:12px;
-            for album in row: Rectangle {
-                height:(AppState.browse-artwork ? self.width : 0px)+60px;
-                accessible-role:button;accessible-label:album.title;
-                album-focus:=ActionFocus {enabled:album.key!="" && AppState.focus-layer=="browse";activated=>{AppState.view="albums";AppState.open-group(album.key,album.secondary,album.title);}}
-                border-width:album-focus.has-focus ? 2px : 0px;border-color:AppState.ink;
-                Rectangle {height:parent.height - 8px;border-radius:6px;background:album.key!="" ? AppState.ink.with-alpha(0.0353) : transparent;}
-                if AppState.browse-artwork && album.key!="": Rectangle {x:8px;y:8px;width:parent.width - 16px;height:self.width;border-radius:3px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:album.cover;missing:album.cover-missing;image-fit:cover;}}
-                Text {x:8px;y:AppState.browse-artwork ? parent.width : 8px;height:20px;width:parent.width - 16px;text:album.title;color:AppState.ink;font-size:12px;font-weight:700;overflow:elide;}
-                Text {x:8px;y:(AppState.browse-artwork ? parent.width : 8px)+20px;height:16px;width:parent.width - 16px;text:album.key!="" ? album.count+(album.count==1 ? " song" : " songs") : "";color:AppState.ink.with-alpha(AppState.light-theme ? 0.65 : 0.4);font-size:11px;}
-                TouchArea {scroll-event(event)=>{root.wheel-scroll(event.delta-y);return accept;}clicked=>{if album.key!="" {AppState.view="albums";AppState.open-group(album.key,album.secondary,album.title);}}}
+    min-width:root.card-width;max-width:root.card-width;
+    min-height:(AppState.browse-artwork ? root.card-width : 0px)+60px;max-height:(AppState.browse-artwork ? root.card-width : 0px)+60px;
+    accessible-role:button;accessible-label:root.album.title;
+    album-focus:=ActionFocus {enabled:root.album.key!="" && AppState.focus-layer=="browse";activated=>{AppState.view="albums";AppState.open-group(root.album.key,root.album.secondary,root.album.title);}}
+    border-width:album-focus.has-focus ? 2px : 0px;border-color:AppState.ink;
+    Rectangle {height:parent.height - 8px;border-radius:6px;background:root.album.key!="" ? AppState.ink.with-alpha(0.0353) : transparent;}
+    if AppState.browse-artwork && root.album.key!="": Rectangle {x:8px;y:8px;width:parent.width - 16px;height:self.width;border-radius:3px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:root.album.cover;missing:root.album.cover-missing;image-fit:cover;}}
+    Text {x:8px;y:AppState.browse-artwork ? parent.width : 8px;height:20px;width:parent.width - 16px;text:root.album.title;color:AppState.ink;font-size:12px;font-weight:700;overflow:elide;}
+    Text {x:8px;y:(AppState.browse-artwork ? parent.width : 8px)+20px;height:16px;width:parent.width - 16px;text:root.album.key!="" ? root.album.count+(root.album.count==1 ? " song" : " songs") : "";color:AppState.ink.with-alpha(AppState.light-theme ? 0.65 : 0.4);font-size:11px;}
+    TouchArea {scroll-event(event)=>{root.wheel-scroll(event.delta-x!=0px ? event.delta-x : event.delta-y);return accept;}clicked=>{if root.album.key!="" {AppState.view="albums";AppState.open-group(root.album.key,root.album.secondary,root.album.title);}}}
+}
+
+component RelatedAlbumsShelf inherits Rectangle {
+    private property<length> card-width:min(200px,max(128px,(root.width - 48px)/6));
+    private property<length> card-height:(AppState.browse-artwork ? self.card-width : 0px)+60px;
+    out property<length> content-height:36px+self.card-height;
+    Text {x:0px;y:0px;width:root.width - (shelf.content-width>shelf.width ? 72px : 0px);height:28px;text:AppState.view=="albums" ? "More by "+AppState.detail-secondary : "Albums";color:AppState.ink;font-size:18px;font-weight:700;overflow:elide;}
+    shelf-motion:=ScrollMotion {offset<=>shelf.content-x;minimum:-max(0px,shelf.content-width - shelf.width);page:shelf.width;}
+    if shelf.content-width>shelf.width: IconButton {label:"Previous albums";x:root.width - 64px;y:0px;width:28px;height:28px;icon-size:16px;icon:Icons.back;enabled:shelf.content-x<0px;clicked=>{shelf-motion.nudge(root.card-width*3+36px);}}
+    if shelf.content-width>shelf.width: IconButton {label:"Next albums";x:root.width - 28px;y:0px;width:28px;height:28px;icon-size:16px;icon:Icons.forward;enabled:shelf.content-x>-(shelf.content-width - shelf.width);clicked=>{shelf-motion.nudge(-root.card-width*3 - 36px);}}
+    shelf:=Flickable {x:0px;y:36px;width:root.width;height:root.content-height - 36px;
+        content-width:max(self.width,AppState.related-albums.length*AppState.related-columns*(root.card-width + 12px));content-height:self.height;
+        mouse-drag-pan-enabled:true;
+        HorizontalLayout {x:0px;y:0px;width:AppState.related-albums.length*AppState.related-columns*(root.card-width + 12px);height:shelf.height;spacing:12px;
+            for row in AppState.related-albums: HorizontalLayout {min-width:root.card-width*AppState.related-columns+12px*(AppState.related-columns - 1);max-width:root.card-width*AppState.related-columns+12px*(AppState.related-columns - 1);height:shelf.height;spacing:12px;
+                for album in row: RelatedAlbumCard {album:album;card-width:root.card-width;wheel-scroll(delta)=>{shelf-motion.nudge(delta);}}
             }
+        }
+    }
+}
+
+component RelatedAlbumsGrid inherits Rectangle {
+    callback wheel-scroll(length);
+    private property<length> card-width:min(176px,max(128px,(root.width - 12px*(AppState.related-columns - 1))/max(1,AppState.related-columns)));
+    private property<length> card-height:(AppState.browse-artwork ? self.card-width : 0px)+60px;
+    out property<length> content-height:36px+AppState.related-albums.length*(self.card-height+12px)-12px;
+    Text {x:0px;y:0px;width:root.width;height:28px;text:AppState.view=="albums" ? "More by "+AppState.detail-secondary : "Albums";color:AppState.ink;font-size:18px;font-weight:700;overflow:elide;}
+    VerticalLayout {x:0px;y:36px;width:root.width;height:root.content-height - 36px;spacing:12px;
+        for row in AppState.related-albums: HorizontalLayout {min-height:root.card-height;max-height:root.card-height;spacing:12px;
+            for album in row: RelatedAlbumCard {album:album;card-width:root.card-width;wheel-scroll(delta)=>{root.wheel-scroll(delta);}}
         }
     }
 }
@@ -109,6 +136,9 @@ export component CatalogView inherits Rectangle {
 
 export component SongsView inherits Rectangle {
     in property<bool> show-related;
+    private property<length> related-card-width:AppState.lyrics-open ? min(200px,max(128px,(root.width - 48px)/6)) : min(176px,max(128px,(root.width - 12px*(AppState.related-columns - 1))/max(1,AppState.related-columns)));
+    private property<length> related-card-height:(AppState.browse-artwork ? self.related-card-width : 0px)+60px;
+    private property<length> related-content-height:36px+(AppState.lyrics-open ? self.related-card-height : AppState.related-albums.length*(self.related-card-height+12px)-12px);
     if AppState.grid && AppState.detail-key=="": Rectangle {
         motion:=ScrollMotion {offset<=>grid.content-y;minimum:-max(0px,grid.content-height - grid.height);page:grid.height;}
         grid:=ListView {
@@ -138,14 +168,6 @@ export component SongsView inherits Rectangle {
         private property<length> album-width:self.width>=600px && (!self.detail || AppState.view!="albums") ? self.width*0.28 : 0px;
         private property<length> duration-x:self.width - 80px;
         private property<length> title-width:self.duration-x - self.index-width - self.artist-width - self.album-width;
-        Rectangle {x:0px;y:0px;height:32px;
-            if table.detail: Text {x:8px;width:40px;text:"#";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
-            Text {x:table.index-width;width:table.title-width - 16px;text:"TITLE";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
-            if table.artist-width>0px: Text {x:table.index-width+table.title-width;width:table.artist-width;text:"ARTIST";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
-            if table.album-width>0px: Text {x:table.duration-x - table.album-width;width:table.album-width;text:"ALBUM";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
-            Text {x:table.duration-x;width:72px;text:"DURATION";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;horizontal-alignment:right;vertical-alignment:center;}
-            Rectangle {y:31px;height:1px;background:AppState.ink.with-alpha(0.1490);}
-        }
         song-list:=ListView {
             y:32px;height:parent.height - 32px;horizontal-scrollbar-policy:always-off;vertical-scrollbar-policy:always-off;
             private property<int> first-row:max(0,floor(-self.content-y/44px)-1);
@@ -156,8 +178,9 @@ export component SongsView inherits Rectangle {
             private property<int> jump-revision:AppState.jump-revision;
             changed jump-revision=> {self.content-y=-max(0,AppState.jump-index*44px);}
             for index in AppState.songs.length+(root.show-related ? 1 : 0): Rectangle {
-                height:index<AppState.songs.length ? 44px : 60px+AppState.related-albums.length*((AppState.browse-artwork ? (min(600px,table.width) - 12px)/2 : 0px)+60px);
-                if index==AppState.songs.length && root.show-related: album-footer:=RelatedAlbums {y:24px;width:min(600px,parent.width);height:self.content-height;wheel-scroll(delta)=>{song-list.content-y=clamp(song-list.content-y+delta,-max(0px,song-list.content-height - song-list.height),0px);}}
+                height:index<AppState.songs.length ? 44px : 40px+root.related-content-height;
+                if index==AppState.songs.length && root.show-related && AppState.lyrics-open: RelatedAlbumsShelf {y:24px;width:parent.width;height:self.content-height;}
+                if index==AppState.songs.length && root.show-related && !AppState.lyrics-open: RelatedAlbumsGrid {y:24px;width:parent.width;height:self.content-height;wheel-scroll(delta)=>{song-list.content-y=clamp(song-list.content-y+delta,-max(0px,song-list.content-height - song-list.height),0px);}}
                 if index<AppState.songs.length: Rectangle {
                 private property<Song> song:AppState.songs[index];
                 accessible-role:button;accessible-label:song.title+", "+song.artist;
@@ -179,6 +202,14 @@ export component SongsView inherits Rectangle {
                 }
                 }
             }
+        }
+        Rectangle {x:0px;y:0px;height:32px;background:AppState.base;
+            if table.detail: Text {x:8px;width:40px;text:"#";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
+            Text {x:table.index-width;width:table.title-width - 16px;text:"TITLE";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
+            if table.artist-width>0px: Text {x:table.index-width+table.title-width;width:table.artist-width;text:"ARTIST";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
+            if table.album-width>0px: Text {x:table.duration-x - table.album-width;width:table.album-width;text:"ALBUM";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;vertical-alignment:center;}
+            Text {x:table.duration-x;width:72px;text:"DURATION";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.3765) : 0.3765);font-size:11px;font-weight:700;horizontal-alignment:right;vertical-alignment:center;}
+            Rectangle {y:31px;height:1px;background:AppState.ink.with-alpha(0.1490);}
         }
     }
     }
@@ -223,6 +254,7 @@ export component CatalogDetails inherits Rectangle {
     private property<bool> has-folders:AppState.view=="folders" && AppState.group-grid.length>0;
     private property<bool> folder-sidebar:root.has-folders && root.width>=900px;
     private property<bool> folder-tabs:root.has-folders && !root.folder-sidebar;
+    private property<bool> related-sidebar:!root.has-folders && AppState.related-albums.length>0 && !AppState.lyrics-open && root.width>=800px;
     if root.folder-tabs: HorizontalLayout {
         x:0px;y:header.height+20px;height:40px;spacing:12px;
         TextButton {text:"Songs ("+AppState.songs.length+")";clicked=>{root.folders-selected=false;}
@@ -233,18 +265,18 @@ export component CatalogDetails inherits Rectangle {
         }
         Rectangle {horizontal-stretch:1;}
     }
-    if !root.folder-tabs || !root.folders-selected: SongsView {show-related:!root.has-folders && root.width<1230px && AppState.related-albums.length>0;x:0px;y:header.height+(root.folder-tabs ? 76px : 32px);width:root.folder-sidebar || (root.width>=1230px && AppState.related-albums.length>0) ? root.width - 364px : root.width;height:root.height - self.y;}
+    if !root.folder-tabs || !root.folders-selected: SongsView {show-related:!root.has-folders && AppState.related-albums.length>0 && !root.related-sidebar;x:0px;y:header.height+(root.folder-tabs ? 76px : 32px);width:root.folder-sidebar || root.related-sidebar ? root.width - 364px : root.width;height:root.height - self.y;}
     if root.folder-tabs && root.folders-selected: CatalogView {x:0px;y:header.height+76px;width:root.width;height:root.height - self.y;}
     if root.folder-sidebar: Rectangle {
         x:root.width - 336px;y:header.height+32px;width:336px;height:root.height - self.y;
         Text {x:0px;y:0px;width:parent.width;height:28px;text:"Subfolders";color:AppState.ink;font-size:18px;font-weight:700;}
         CatalogView {y:36px;height:parent.height - 36px;}
     }
-    if !root.has-folders && root.width>=1230px && AppState.related-albums.length>0: Rectangle {
+    if root.related-sidebar: Rectangle {
         x:root.width - 336px;y:header.height+32px;width:336px;height:root.height - self.y;
         related-motion:=ScrollMotion {offset<=>related-list.content-y;minimum:-max(0px,related-list.content-height - related-list.height);page:related-list.height;}
-        related-list:=Flickable {content-width:self.width;content-height:albums.content-height;mouse-drag-pan-enabled:false;
-            albums:=RelatedAlbums {width:related-list.width;height:self.content-height;wheel-scroll(delta)=>{related-motion.nudge(delta);}}
+        related-list:=Flickable {content-width:self.width;content-height:related-grid.content-height;mouse-drag-pan-enabled:false;
+            related-grid:=RelatedAlbumsGrid {width:related-list.width;height:self.content-height;wheel-scroll(delta)=>{related-motion.nudge(delta);}}
         }
     }
 }

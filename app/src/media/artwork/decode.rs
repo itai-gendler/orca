@@ -48,7 +48,7 @@ pub(super) fn decode(key: Key) -> Decoded {
                 if key.edge <= 96 || key.height > 0 {
                     FilterType::Lanczos3
                 } else {
-                    FilterType::Triangle
+                    FilterType::CatmullRom
                 },
             )
         } else {
