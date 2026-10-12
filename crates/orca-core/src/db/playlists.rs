@@ -122,6 +122,17 @@ pub fn get_playlist_song_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<
         .collect()
 }
 
+pub fn get_song_playlist_ids(conn: &Connection, song_id: i64) -> Result<Vec<i64>, String> {
+    let mut statement = conn
+        .prepare("SELECT playlist_id FROM playlist_songs WHERE song_id = ?1")
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map(params![song_id], |row| row.get(0))
+        .map_err(|error| error.to_string())?;
+    rows.map(|row| row.map_err(|error| error.to_string()))
+        .collect()
+}
+
 pub fn get_song_path_index(conn: &Connection) -> Result<HashMap<String, i64>, String> {
     let mut statement = conn
         .prepare("SELECT id, path FROM songs")

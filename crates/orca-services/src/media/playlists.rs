@@ -85,4 +85,8 @@ impl Backend {
         self.scan.revision.fetch_add(1, Ordering::Relaxed);
         Ok(change)
     }
+
+    pub fn song_playlist_ids(&self, song_id: i64) -> Result<Vec<i64>, String> {
+        db::get_song_playlist_ids(&self.conn, song_id)
+    }
 }
