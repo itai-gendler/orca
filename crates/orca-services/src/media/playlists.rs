@@ -81,6 +81,17 @@ impl Backend {
                 db::remove_from_playlist(&self.conn, id, song_id)?;
                 PlaylistChange::Membership
             }
+            PlaylistEdit::RemoveMany { id, song_ids } => {
+                if song_ids.iter().any(|song_id| *song_id <= 0) {
+                    return Err("Invalid song".into());
+                }
+                match id {
+                    Some(id) if id > 0 => db::remove_many_from_playlist(&self.conn, id, &song_ids)?,
+                    None => db::remove_many_likes(&self.conn, &song_ids)?,
+                    _ => return Err("Invalid playlist".into()),
+                }
+                PlaylistChange::Membership
+            }
         };
         self.scan.revision.fetch_add(1, Ordering::Relaxed);
         Ok(change)
@@ -88,5 +99,15 @@ impl Backend {
 
     pub fn song_playlist_ids(&self, song_id: i64) -> Result<Vec<i64>, String> {
         db::get_song_playlist_ids(&self.conn, song_id)
+    }
+
+    pub fn is_song_liked(&self, song_id: i64) -> Result<bool, String> {
+        db::is_song_liked(&self.conn, song_id)
+    }
+
+    pub fn set_song_liked(&self, song_id: i64, liked: bool) -> Result<(), String> {
+        db::set_song_liked(&self.conn, song_id, liked)?;
+        self.scan.revision.fetch_add(1, Ordering::Relaxed);
+        Ok(())
     }
 }

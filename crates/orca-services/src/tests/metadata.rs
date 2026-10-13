@@ -23,7 +23,7 @@ fn malformed_collection_override_reports_error_without_changing_playlist() {
     let directory = Fixture::new();
     let backend = directory.backend();
     backend.playlist_action("create", 0, 0, "Original").unwrap();
-    let playlist = backend.groups("playlists", "").unwrap().remove(0);
+    let playlist = user_playlist(&backend);
     let key = serde_json::json!(["playlists", playlist.key, ""]).to_string();
     let overrides = serde_json::json!({key: false});
     db::set_setting(
@@ -34,10 +34,7 @@ fn malformed_collection_override_reports_error_without_changing_playlist() {
     .unwrap();
     let result = backend.operation(&serde_json::json!({"action":"collection-edit", "kind":"playlists", "key":playlist.key, "name":"Changed"}).to_string());
     assert!(result.unwrap_err().contains("Invalid collection settings"));
-    assert_eq!(
-        backend.raw_groups("playlists", "").unwrap()[0].title,
-        "Original"
-    );
+    assert_eq!(user_playlist(&backend).title, "Original");
 }
 
 #[test]

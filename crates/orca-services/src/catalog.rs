@@ -45,7 +45,7 @@ pub(super) fn predicate(kind: &str) -> &'static str {
         "folders" if cfg!(windows) => "substr(replace(s.path,char(92),'/'),1,length(rtrim(replace(?2,char(92),'/'),'/'))+1) = (rtrim(replace(?2,char(92),'/'),'/') || '/') COLLATE NOCASE",
         "folders" => "substr(s.path,1,length(rtrim(?2,'/'))+1) = (rtrim(?2,'/') || '/') COLLATE BINARY",
         "playlists" => {
-            "s.id IN (SELECT song_id FROM playlist_songs WHERE playlist_id = CAST(?2 AS INTEGER))"
+            "((?2='liked' AND s.id IN (SELECT song_id FROM liked_songs)) OR (?2!='liked' AND s.id IN (SELECT song_id FROM playlist_songs WHERE playlist_id = CAST(?2 AS INTEGER))))"
         }
         _ => "1=1",
     }
@@ -195,10 +195,11 @@ impl Backend {
                 if let Some(name) = entry["name"].as_str() {
                     group.title = name.into();
                 }
-                if let Some(cover) = entry["cover"]
-                    .as_str()
-                    .filter(|cover| !matches!(kind, "albums" | "artists") || !cover.is_empty())
-                {
+                if let Some(cover) = entry["cover"].as_str().filter(|cover| {
+                    !(matches!(kind, "albums" | "artists")
+                        || kind == "playlists" && group.key == "liked")
+                        || !cover.is_empty()
+                }) {
                     group.artwork = cover.into();
                     group.artwork_tiles.clear();
                 }
@@ -208,7 +209,12 @@ impl Backend {
         groups.retain(|g| {
             g.title.to_lowercase().contains(&search) || g.subtitle.to_lowercase().contains(&search)
         });
-        groups.sort_by_key(|g| g.title.to_lowercase());
+        groups.sort_by_key(|g| {
+            (
+                kind == "playlists" && g.key != "liked",
+                g.title.to_lowercase(),
+            )
+        });
         Ok(groups)
     }
     pub(super) fn collection_overrides(
@@ -311,22 +317,35 @@ impl Backend {
                 .collect();
         }
         if kind == "playlists" {
-            return db::get_playlists(&self.conn)?
-                .into_iter()
-                .filter(|p| p.name.to_lowercase().contains(&search.to_lowercase()))
-                .map(|p| {
-                    let artwork = self.playlist_artwork(p.id, p.cover_path)?;
-                    Ok(ffi::Group {
-                        key: p.id.to_string(),
-                        secondary: String::new(),
-                        title: p.name,
-                        subtitle: format!("{} songs", p.song_count),
-                        artwork: artwork.unwrap_or_default(),
-                        count: p.song_count as u32,
-                        artwork_tiles: Vec::new(),
+            let liked = db::liked_songs_summary(&self.conn)?;
+            let mut groups = vec![ffi::Group {
+                key: "liked".into(),
+                secondary: String::new(),
+                title: "Liked Songs".into(),
+                subtitle: format!("{} songs", liked.count),
+                artwork: liked.artwork,
+                count: liked.count,
+                artwork_tiles: Vec::new(),
+            }];
+            groups.extend(
+                db::get_playlists(&self.conn)?
+                    .into_iter()
+                    .filter(|p| p.name.to_lowercase().contains(&search.to_lowercase()))
+                    .map(|p| {
+                        let artwork = self.playlist_artwork(p.id, p.cover_path)?;
+                        Ok(ffi::Group {
+                            key: p.id.to_string(),
+                            secondary: String::new(),
+                            title: p.name,
+                            subtitle: format!("{} songs", p.song_count),
+                            artwork: artwork.unwrap_or_default(),
+                            count: p.song_count as u32,
+                            artwork_tiles: Vec::new(),
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>, String>>();
+                    .collect::<Result<Vec<_>, String>>()?,
+            );
+            return Ok(groups);
         }
         let column = match kind {
             "artists" => "artist",
@@ -381,6 +400,7 @@ fn query_order(query: &ffi::Query) -> String {
     };
     match query.kind.as_str() {
             "albums" => "COALESCE(s.track_number,999),s.title COLLATE NOCASE,s.id".to_string(),
+            "playlists" if query.key == "liked" => "(SELECT l.liked_at FROM liked_songs l WHERE l.song_id=s.id) DESC,s.id DESC".to_string(),
             "playlists" => "(SELECT ps.position FROM playlist_songs ps WHERE ps.playlist_id=CAST(?2 AS INTEGER) AND ps.song_id=s.id),s.id".to_string(),
             _ if sort=="s.title"=>"s.title COLLATE NOCASE,s.id".into(),
             _ => format!("{sort} COLLATE NOCASE,s.title COLLATE NOCASE,s.id"),

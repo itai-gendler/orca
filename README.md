@@ -19,7 +19,7 @@ or share your ideas. Your feedback and contributions help make it better. Thank 
 ## Features
 
 - Offline playback, search, alphabetical browsing and nested music folders
-- Songs, artists, albums, genres and playlists, with list and grid views
+- Songs, artists, albums, genres, playlists and one-click Liked Songs, with list and grid views
 - Gapless playback, shuffle, repeat, queue reordering and session restore
 - Synced and word-timed lyrics, click-to-seek, LRC import and online fetching
 - Waveform and classic seekbars, compact player and full-player lyrics

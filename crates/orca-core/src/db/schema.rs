@@ -2,7 +2,15 @@
 use rusqlite::{Connection, TransactionBehavior};
 use std::{collections::HashSet, path::PathBuf, time::Duration};
 
-const SCHEMA_VERSION: i64 = 2;
+// user_version is the minimum reader schema: the released v2 app can ignore
+// additive tables. Numbered migrations record which additions have run.
+const MIN_READER_VERSION: i64 = 2;
+const LIKES_MIGRATION: i64 = 3;
+const LIKES_PREVIEW_VERSION: i64 = 3;
+const LIKES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS liked_songs (
+    song_id INTEGER PRIMARY KEY REFERENCES songs(id) ON DELETE CASCADE,
+    liked_at INTEGER NOT NULL DEFAULT (unixepoch())
+);";
 
 pub fn init_db(app_dir: PathBuf) -> Result<Connection, String> {
     let mut conn = Connection::open(app_dir.join("orca.db")).map_err(|e| e.to_string())?;
@@ -11,8 +19,10 @@ pub fn init_db(app_dir: PathBuf) -> Result<Connection, String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(|e| e.to_string())?;
-    if version > SCHEMA_VERSION {
-        return Err(format!("Library schema {version} is newer than supported schema {SCHEMA_VERSION}; use a newer Orca build"));
+    if version > MIN_READER_VERSION
+        && !is_likes_preview(&conn, version).map_err(|e| e.to_string())?
+    {
+        return Err(format!("Library schema {version} is newer than supported schema {MIN_READER_VERSION}; use a newer Orca build"));
     }
     conn.execute_batch(
         "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA cache_size = -16000;",
@@ -25,10 +35,7 @@ pub fn init_db(app_dir: PathBuf) -> Result<Connection, String> {
 fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    if version == SCHEMA_VERSION {
-        return tx.commit();
-    }
-    if version > SCHEMA_VERSION {
+    if version > MIN_READER_VERSION && !is_likes_preview(&tx, version)? {
         return Err(rusqlite::Error::InvalidQuery);
     }
     if version < 1 {
@@ -72,8 +79,39 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
             CREATE INDEX IF NOT EXISTS idx_playlist_songs_order ON playlist_songs(playlist_id,position,id);
             CREATE INDEX IF NOT EXISTS idx_playlist_songs_song ON playlist_songs(song_id);")?;
     }
-    tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS orca_schema_migrations (
+        revision INTEGER PRIMARY KEY,
+        applied_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );",
+    )?;
+    let likes_applied: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM orca_schema_migrations WHERE revision=?1)",
+        [LIKES_MIGRATION],
+        |row| row.get(0),
+    )?;
+    if !likes_applied {
+        tx.execute_batch(LIKES_SCHEMA)?;
+        tx.execute(
+            "INSERT INTO orca_schema_migrations(revision) VALUES(?1)",
+            [LIKES_MIGRATION],
+        )?;
+    }
+    if version != MIN_READER_VERSION {
+        tx.pragma_update(None, "user_version", MIN_READER_VERSION)?;
+    }
     tx.commit()
+}
+
+fn is_likes_preview(conn: &Connection, version: i64) -> rusqlite::Result<bool> {
+    if version != LIKES_PREVIEW_VERSION {
+        return Ok(false);
+    }
+    let mut statement = conn.prepare("PRAGMA table_info(liked_songs)")?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<HashSet<_>>>()?;
+    Ok(columns.contains("song_id") && columns.contains("liked_at"))
 }
 
 fn ensure_column(

@@ -18,6 +18,12 @@ pub(super) fn run(
             let identity = &edit.identity;
             let kind = identity.kind.as_str();
             let key = identity.key.as_str();
+            if kind == "playlists"
+                && key == "liked"
+                && (edit.name.is_some() || edit.cover.is_none())
+            {
+                return Err("Only the Liked Songs cover can be changed".into());
+            }
             let secondary = if kind == "folders" {
                 ""
             } else {

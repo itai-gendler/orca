@@ -18,6 +18,7 @@ pub enum PlaylistEdit {
     Delete { id: i64 },
     Add { id: i64, song_id: i64 },
     Remove { id: i64, song_id: i64 },
+    RemoveMany { id: Option<i64>, song_ids: Vec<i64> },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlaylistChange {

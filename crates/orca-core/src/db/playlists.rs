@@ -110,6 +110,27 @@ pub fn remove_from_playlist(
     Ok(())
 }
 
+pub fn remove_many_from_playlist(
+    conn: &Connection,
+    playlist_id: i64,
+    song_ids: &[i64],
+) -> Result<(), String> {
+    let transaction = conn
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+    {
+        let mut statement = transaction
+            .prepare("DELETE FROM playlist_songs WHERE playlist_id = ?1 AND song_id = ?2")
+            .map_err(|error| error.to_string())?;
+        for song_id in song_ids {
+            statement
+                .execute(params![playlist_id, song_id])
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    transaction.commit().map_err(|error| error.to_string())
+}
+
 pub fn get_playlist_song_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<i64>, String> {
     let mut statement = conn
         .prepare("SELECT song_id FROM playlist_songs WHERE playlist_id = ?1 ORDER BY position ASC")

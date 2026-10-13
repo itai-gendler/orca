@@ -241,10 +241,7 @@ fn imported_legacy_profile_survives_upgrade_and_second_startup() {
             "[00:00.00]Preserved lyrics"
         );
         assert_eq!(backend.library_roots().unwrap(), vec!["C:/Music"]);
-        assert_eq!(
-            backend.raw_groups("playlists", "").unwrap()[0].title,
-            "Saved mix"
-        );
+        assert_eq!(user_playlist(&backend).title, "Saved mix");
         assert_eq!(
             backend
                 .conn
@@ -271,6 +268,17 @@ fn imported_legacy_profile_survives_upgrade_and_second_startup() {
                 .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
             2
+        );
+        assert_eq!(
+            backend
+                .conn
+                .query_row(
+                    "SELECT count(*) FROM orca_schema_migrations WHERE revision=3",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
         );
         drop(backend);
         prepare_data_dir(destination.0.to_str().unwrap()).unwrap();

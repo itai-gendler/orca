@@ -137,13 +137,22 @@ pub(super) fn run(
                     (selected.name, selected.song_artwork, Vec::new())
                 }
                 "playlists" => {
-                    let playlist_id = key.parse::<i64>().map_err(|_| "Invalid playlist id")?;
-                    let selected = db::get_playlists(&backend.conn)?
-                        .into_iter()
-                        .find(|p| p.id == playlist_id)
-                        .ok_or_else(|| "Playlist not found".to_string())?;
-                    let artwork = backend.playlist_artwork(playlist_id, selected.cover_path)?;
-                    (selected.name, artwork, Vec::new())
+                    if key == "liked" {
+                        let liked = db::liked_songs_summary(&backend.conn)?;
+                        (
+                            "Liked Songs".into(),
+                            Some(liked.artwork).filter(|art| !art.is_empty()),
+                            Vec::new(),
+                        )
+                    } else {
+                        let playlist_id = key.parse::<i64>().map_err(|_| "Invalid playlist id")?;
+                        let selected = db::get_playlists(&backend.conn)?
+                            .into_iter()
+                            .find(|p| p.id == playlist_id)
+                            .ok_or_else(|| "Playlist not found".to_string())?;
+                        let artwork = backend.playlist_artwork(playlist_id, selected.cover_path)?;
+                        (selected.name, artwork, Vec::new())
+                    }
                 }
                 _ => return Err("Unknown detail type".into()),
             };
@@ -237,7 +246,9 @@ pub(super) fn run(
                 .get(&json!([kind, key, secondary]).to_string())
                 .and_then(|v| v["cover"].as_str())
                 .filter(|cover| {
-                    !matches!(kind, "albums" | "artists" | "folders") || !cover.is_empty()
+                    !(matches!(kind, "albums" | "artists" | "folders")
+                        || kind == "playlists" && key == "liked")
+                        || !cover.is_empty()
                 })
             {
                 detail.artwork = Some(cover.into());

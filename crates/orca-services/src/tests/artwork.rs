@@ -448,15 +448,13 @@ fn collection_edits_preserve_identity_and_removed_cover_survives_reopening() {
     };
     assert!(b.page(&query, 0, 10).unwrap().total > 0);
     b.playlist_action("create", 0, 0, "Old playlist").unwrap();
-    let playlist = b.groups("playlists", "").unwrap().remove(0);
+    let playlist = user_playlist(&b);
     b.operation(&serde_json::json!({"action":"collection-edit","kind":"playlists","key":playlist.key,"name":"New playlist","cover":""}).to_string()).unwrap();
-    assert_eq!(b.groups("playlists", "").unwrap()[0].title, "New playlist");
+    assert_eq!(user_playlist(&b).title, "New playlist");
     drop(b);
     let reopened = f.backend();
     assert_eq!(reopened.groups("artists", "A").unwrap()[0].key, artist.key);
-    assert!(reopened.groups("playlists", "").unwrap()[0]
-        .artwork
-        .is_empty());
+    assert!(user_playlist(&reopened).artwork.is_empty());
 }
 
 #[test]
@@ -500,9 +498,9 @@ fn custom_collection_covers_are_copied_with_small_backgrounds_and_album_keys_sta
     fs::remove_file(&cover).unwrap();
     assert!(Path::new(&b.groups("genres", "").unwrap()[0].artwork).is_file());
     b.playlist_action("create", 0, 0, "Unchanged").unwrap();
-    let playlist = b.groups("playlists", "").unwrap().remove(0);
+    let playlist = user_playlist(&b);
     assert!(b.operation(&serde_json::json!({"action":"collection-edit","kind":"playlists","key":playlist.key,"name":"Rejected","cover":cover}).to_string()).is_err());
-    assert_eq!(b.groups("playlists", "").unwrap()[0].title, "Unchanged");
+    assert_eq!(user_playlist(&b).title, "Unchanged");
 }
 
 #[test]

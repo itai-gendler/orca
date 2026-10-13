@@ -44,3 +44,11 @@ fn seed(b: &Backend) {
         b.conn.execute("INSERT INTO songs(path,title,artist,album_artist,album,duration) VALUES(?1,?2,?3,?3,?4,1000)", params![path,title,artist,album]).unwrap();
     }
 }
+
+fn user_playlist(b: &Backend) -> types::Group {
+    b.groups("playlists", "")
+        .unwrap()
+        .into_iter()
+        .find(|group| group.key != "liked")
+        .unwrap()
+}

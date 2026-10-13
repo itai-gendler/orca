@@ -34,6 +34,95 @@ fn partial_legacy_upgrade_adds_every_column_and_is_idempotent() {
 }
 
 #[test]
+fn adding_likes_preserves_existing_library_and_playlists() {
+    let mut conn = legacy();
+    conn.execute_batch(SCHEMA).unwrap();
+    conn.execute_batch(
+        "INSERT INTO playlists(id,name) VALUES(7,'Saved mix');
+        INSERT INTO playlist_songs(playlist_id,song_id,position) VALUES(7,1,0);
+        PRAGMA user_version=2;",
+    )
+    .unwrap();
+    migrate(&mut conn).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT title FROM songs WHERE id=1", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "Song"
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT song_id FROM playlist_songs WHERE playlist_id=7",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    crate::db::set_song_liked(&conn, 1, true).unwrap();
+    migrate(&mut conn).unwrap();
+    assert_eq!(
+        conn.query_row(
+            "SELECT count(*) FROM orca_schema_migrations WHERE revision=3",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2,
+        "the released v2 app must be able to reopen the library"
+    );
+    assert!(crate::db::is_song_liked(&conn, 1).unwrap());
+    conn.execute("DELETE FROM songs WHERE id=1", []).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT count(*) FROM liked_songs", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn preview_version_three_is_repaired_without_losing_likes() {
+    let directory =
+        std::env::temp_dir().join(format!("orca-likes-preview-schema-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let file = directory.join("orca.db");
+    let conn = Connection::open(&file).unwrap();
+    conn.execute_batch(SCHEMA).unwrap();
+    conn.execute_batch(LIKES_SCHEMA).unwrap();
+    conn.execute_batch(
+        "INSERT INTO songs(id,title,artist,path,duration) VALUES(1,'Song','Artist','song.flac',100);
+         INSERT INTO liked_songs(song_id) VALUES(1);
+         PRAGMA user_version=3;",
+    )
+    .unwrap();
+    drop(conn);
+
+    let conn = init_db(directory.clone()).unwrap();
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert!(crate::db::is_song_liked(&conn, 1).unwrap());
+    drop(conn);
+    // Simulate the released v2 build's version check after the repair.
+    let old = Connection::open(&file).unwrap();
+    assert!(
+        old.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap()
+            <= 2
+    );
+    drop(old);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn failed_migration_rolls_back_columns_data_and_version() {
     let mut conn = legacy();
     conn.execute_batch("CREATE TABLE playlists(id INTEGER PRIMARY KEY,name TEXT);
@@ -157,6 +246,6 @@ fn version_two_adds_query_indexes_without_repeating_duplicate_cleanup() {
     assert_eq!(
         conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        SCHEMA_VERSION
+        MIN_READER_VERSION
     );
 }
