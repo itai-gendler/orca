@@ -60,7 +60,7 @@ struct Prepared {
 }
 enum ResultRow {
     Heights(u64, Vec<f32>),
-    Bitmap(u64, usize, u32, u32, Vec<u8>, Vec<Span>),
+    Bitmap(u64, usize, u32, u32, Vec<u8>, u32, u32, Vec<Span>),
 }
 struct Entry {
     render: LyricRender,
@@ -157,13 +157,13 @@ impl Renderer {
                 if config.width as usize * line.height as usize * 4 > BUDGET {
                     send(
                         &tx,
-                        ResultRow::Bitmap(at, index, 0, 0, vec![], vec![]),
+                        ResultRow::Bitmap(at, index, 0, 0, vec![], 0, 0, vec![]),
                         &cancelled,
                         &epoch,
                         at,
                     );
                 } else {
-                    let bytes = raster(&line.layout, config.width, line.height, &mut scaler);
+                    let bitmap = raster(&line.layout, config.width, line.height, &mut scaler);
                     send(
                         &tx,
                         ResultRow::Bitmap(
@@ -171,7 +171,9 @@ impl Renderer {
                             index,
                             config.width,
                             line.height,
-                            bytes,
+                            bitmap.bytes,
+                            bitmap.ink_top,
+                            bitmap.ink_bottom,
                             line.spans.clone(),
                         ),
                         &cancelled,
@@ -303,7 +305,9 @@ impl Renderer {
                     self.layout_revision = self.layout_revision.wrapping_add(1);
                     changed = true;
                 }
-                ResultRow::Bitmap(at, index, width, height, bytes, spans) if at == current => {
+                ResultRow::Bitmap(at, index, width, height, bytes, ink_top, ink_bottom, spans)
+                    if at == current =>
+                {
                     self.pending.remove(&index);
                     let cost = bytes.len();
                     if cost > BUDGET {
@@ -348,6 +352,8 @@ impl Renderer {
                             .get(index)
                             .copied()
                             .unwrap_or(height as f32 / dpr),
+                        ink_top: ink_top as f32 / dpr,
+                        ink_bottom: ink_bottom as f32 / dpr,
                         spans: Rc::new(VecModel::from(spans)).into(),
                     };
                     if let Some(old) = self.entries.insert(

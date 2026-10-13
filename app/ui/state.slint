@@ -10,7 +10,7 @@ export struct PlaylistChoice { key:string, title:string, selected:bool, }
 export struct LyricWord {text:string,time:float,end-time:float,}
 export struct LyricLine { text: string, time: float, words:[LyricWord], }
 export struct LyricSpan { x:float,y:float,width:float,height:float,time:float,end-time:float,rtl:bool, }
-export struct LyricRender { bitmap:image,height:float,spans:[LyricSpan], }
+export struct LyricRender { bitmap:image,height:float,ink-top:float,ink-bottom:float,spans:[LyricSpan], }
 export struct MetadataDraft {
     path:string,title:string,artist:string,album:string,album-artist:string,
     year:string,track-number:string,disc-number:string,genre:string,lyrics:string,
@@ -20,7 +20,7 @@ export struct MetadataDraft {
 export global AppState {
     in-out property<bool> keyboard-navigation:false;
     in-out property<float> display-dpr:1;
-    out property<string> focus-layer:modal-open ? "dialog" : menu-open || collection-menu-open || (playlist-picker-open && !full-player) ? "menu" : queue-open ? "queue" : full-player ? "full" : "browse";
+    out property<string> focus-layer:modal-open ? "dialog" : menu-open || collection-menu-open || playlist-picker-open ? "menu" : queue-open ? "queue" : full-player ? "full" : "browse";
     out property<bool> modal-open:metadata-open || collection-dialog || playlist-dialog;
     in-out property<color> player-accent:white;
     in-out property<bool> light-theme:false;
@@ -50,6 +50,11 @@ export global AppState {
     in-out property <bool> queue-open: false;
     in-out property <bool> playlist-picker-open: false;
     in-out property <bool> playlist-picker-loading: false;
+    in-out property <bool> liked: false;
+    in-out property <bool> show-liked-songs: true;
+    in-out property <bool> playlist-selection-mode: false;
+    in-out property <int> playlist-selection-count: 0;
+    in-out property <int> playlist-selection-revision: 0;
     in-out property <[PlaylistChoice]> playlist-choices;
     in-out property <string> detail-key;
     in-out property <string> detail-secondary;
@@ -74,6 +79,7 @@ export global AppState {
     in-out property <int> lyric-render-revision;
     in-out property <int> lyric-layout-revision;
     in-out property<float> player-cover-size:396;
+    in-out property<float> player-swipe-offset:0;
     in-out property <int> active-line:  - 1;
     in-out property <Song> now;
     in-out property <image> original-cover;
@@ -128,6 +134,7 @@ export global AppState {
     callback browse();
     callback play(string);
     callback command(string, float);
+    callback player-swipe(float, float) -> bool;
     callback seek(float);
     callback volume-changed(float);
     callback add-folder();
@@ -155,6 +162,9 @@ export global AppState {
     callback collection-action(string);
     callback metadata-action(string, string);
     callback playlist-action(string, string);
+    callback playlist-selection(string, int);
+    pure callback playlist-song-selected(int, int)->bool;
+    callback toggle-like();
     callback report-issue();
     callback font-action(string);
     callback unfocus();

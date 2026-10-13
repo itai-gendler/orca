@@ -38,12 +38,14 @@ fn cached_glyphs_and_highlight_rectangles_share_the_same_coordinates() {
         ],
     };
     let prepared = shape(&mut fonts(), &mut LayoutContext::new(), line, &config(600));
-    let pixels = raster(
+    let rasterized = raster(
         &prepared.layout,
         600,
         prepared.height,
         &mut swash::scale::ScaleContext::new(),
     );
+    let pixels = &rasterized.bytes;
+    assert!(rasterized.ink_top < rasterized.ink_bottom);
     assert_eq!(prepared.spans.len(), 2);
     assert!(prepared.spans[0].x > 100.0, "paragraph should be centered");
     for span in &prepared.spans {

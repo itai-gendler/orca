@@ -6,7 +6,7 @@ fn playlist_membership_and_local_lyrics_cross_the_boundary() {
     let b = f.backend();
     seed(&b);
     b.playlist_action("create", 0, 0, "Quiet").unwrap();
-    let group = b.groups("playlists", "").unwrap().remove(0);
+    let group = user_playlist(&b);
     let id = group.key.parse().unwrap();
     let song = b.track("一.wav").unwrap();
     b.playlist_action("add", id, song.id, "").unwrap();

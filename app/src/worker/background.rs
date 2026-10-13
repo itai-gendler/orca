@@ -134,7 +134,16 @@ pub(super) fn spawn(workers: BackgroundWorkers) -> Vec<thread::JoinHandle<()>> {
                         let (text, status) = match lyrics {
                             Ok(text) if !text.is_empty() => (text, String::new()),
                             Ok(_) => (String::new(), "No lyrics found".into()),
-                            Err(_) => (String::new(), "Could not fetch lyrics from LRCLIB".into()),
+                            Err(error)
+                                if error == "Lyrics not found"
+                                    || error == "No lyrics found for a matching recording" =>
+                            {
+                                (String::new(), "No matching lyrics found in LRCLIB".into())
+                            }
+                            Err(_) => (
+                                String::new(),
+                                "Lyrics lookup failed; try again later".into(),
+                            ),
                         };
                         let _ = events.send(Event::Lyrics(revision, text, status));
                     }

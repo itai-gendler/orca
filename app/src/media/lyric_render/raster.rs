@@ -1,12 +1,20 @@
 use parley::Layout;
 
+pub(super) struct Rasterized {
+    pub bytes: Vec<u8>,
+    pub ink_top: u32,
+    pub ink_bottom: u32,
+}
+
 pub(super) fn raster(
     layout: &Layout<()>,
     width: u32,
     height: u32,
     context: &mut swash::scale::ScaleContext,
-) -> Vec<u8> {
+) -> Rasterized {
     let mut bytes = vec![0; width as usize * height as usize * 4];
+    let mut ink_top = height;
+    let mut ink_bottom = 0;
     let padding = (height as f32 - layout.height()) / 2.0;
     for line in layout.lines() {
         let mut x = line.metrics().offset + line.metrics().inline_min_coord;
@@ -44,6 +52,10 @@ pub(super) fn raster(
                                         mask.data[(my * mask.placement.width + mx) as usize];
                                     bytes[at..at + 3].fill(255);
                                     bytes[at + 3] = bytes[at + 3].max(alpha);
+                                    if alpha > 0 {
+                                        ink_top = ink_top.min(py as u32);
+                                        ink_bottom = ink_bottom.max(py as u32 + 1);
+                                    }
                                 }
                             }
                         }
@@ -54,5 +66,9 @@ pub(super) fn raster(
             }
         }
     }
-    bytes
+    Rasterized {
+        bytes,
+        ink_top,
+        ink_bottom,
+    }
 }

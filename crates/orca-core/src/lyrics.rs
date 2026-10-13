@@ -96,43 +96,65 @@ fn lookup(
         Err(error) => failure = Some(error),
         _ => {}
     }
-    // Plain-only /get does not prove that synced lyrics are absent.
-    check_stop(stop)?;
-    let params = form_urlencoded::Serializer::new(String::new())
-        .append_pair("track_name", title)
-        .append_pair("artist_name", artist)
-        .finish();
-    let search = request(&format!("https://lrclib.net/api/search?{params}")).and_then(|value| {
-        serde_json::from_value::<Vec<LrclibResponse>>(value).map_err(|e| e.to_string())
-    });
-    check_stop(stop)?;
-    match search {
-        Ok(mut results) => {
-            results.retain(|r| matches_identity(r, title, artist, album, duration_ms));
-            results.sort_by(|a, b| {
-                let distance = |r: &LrclibResponse| {
-                    r.duration
-                        .map(|d| (d * 1000.0 - duration_ms as f64).abs())
-                        .unwrap_or(f64::MAX)
-                };
-                distance(a).total_cmp(&distance(b))
+    // Plain-only /get does not prove that synced lyrics are absent. A featured
+    // credit in a local title may also be absent from the provider's title.
+    let primary_artist = artist.split(';').next().unwrap_or(artist).trim();
+    let short_title = title_without_feature(title).unwrap_or(title);
+    let fallback =
+        (short_title != title || primary_artist != artist).then_some((short_title, primary_artist));
+    for (search_title, search_artist) in [Some((title, artist)), fallback].into_iter().flatten() {
+        check_stop(stop)?;
+        let params = form_urlencoded::Serializer::new(String::new())
+            .append_pair("track_name", search_title)
+            .append_pair("artist_name", search_artist)
+            .finish();
+        let search =
+            request(&format!("https://lrclib.net/api/search?{params}")).and_then(|value| {
+                serde_json::from_value::<Vec<LrclibResponse>>(value).map_err(|e| e.to_string())
             });
-            for result in results {
-                if let Some(synced) = nonempty(result.synced_lyrics) {
-                    return Ok(synced);
-                }
-                if plain.is_none() {
-                    plain = nonempty(result.plain_lyrics);
+        check_stop(stop)?;
+        match search {
+            Ok(mut results) => {
+                results.retain(|r| matches_identity(r, title, artist, album, duration_ms));
+                results.sort_by(|a, b| {
+                    let distance = |r: &LrclibResponse| {
+                        r.duration
+                            .map(|d| (d * 1000.0 - duration_ms as f64).abs())
+                            .unwrap_or(f64::MAX)
+                    };
+                    distance(a).total_cmp(&distance(b))
+                });
+                for result in results {
+                    if let Some(synced) = nonempty(result.synced_lyrics) {
+                        return Ok(synced);
+                    }
+                    if plain.is_none() {
+                        plain = nonempty(result.plain_lyrics);
+                    }
                 }
             }
+            Err(error) => {
+                failure = Some(error);
+                break;
+            }
         }
-        Err(error) => failure = Some(error),
     }
     plain
         .ok_or_else(|| failure.unwrap_or_else(|| "No lyrics found for a matching recording".into()))
 }
 fn nonempty(value: Option<String>) -> Option<String> {
     value.filter(|s| !s.trim().is_empty())
+}
+fn title_without_feature(title: &str) -> Option<&str> {
+    let lower = title.to_ascii_lowercase();
+    if !lower.ends_with(')') {
+        return None;
+    }
+    [" (feat.", " (feat ", " (ft.", " (ft ", " (featuring "]
+        .iter()
+        .filter_map(|marker| lower.rfind(marker))
+        .map(|at| title[..at].trim_end())
+        .find(|base| !base.is_empty())
 }
 fn matches_identity(
     result: &LrclibResponse,
@@ -142,12 +164,17 @@ fn matches_identity(
     duration_ms: u64,
 ) -> bool {
     use crate::media_identity::{album_matches, names_match};
-    names_match(title, &result.track_name)
+    (names_match(title, &result.track_name)
+        || title_without_feature(title).is_some_and(|base| names_match(base, &result.track_name))
+        || title_without_feature(&result.track_name).is_some_and(|base| names_match(title, base)))
         && (names_match(artist, &result.artist_name)
             || artist
                 .split(';')
                 .any(|a| names_match(a, &result.artist_name)))
-        && (album.is_empty() || album_matches(album, &result.album_name))
+        && (album.is_empty()
+            || album_matches(album, &result.album_name)
+            || title_without_feature(album)
+                .is_some_and(|base| album_matches(base, &result.album_name)))
         && (duration_ms == 0
             || result.duration.is_some_and(|d| {
                 d.is_finite() && d > 0.0 && (d * 1000.0 - duration_ms as f64).abs() <= 3000.0
@@ -233,6 +260,46 @@ mod tests {
         })
         .unwrap();
         assert_eq!(lyrics, "[00:01.00]Synced");
+    }
+    #[test]
+    fn featured_title_and_multiple_artists_retry_without_losing_identity_checks() {
+        let mut calls = Vec::new();
+        let result = json!({"trackName":"visa","artistName":"again&again","albumName":"visa - Single","duration":166.0,"syncedLyrics":"[00:01.00]Matched"});
+        let replies = vec![
+            Err("Lyrics not found".into()),
+            Ok(json!([])),
+            Ok(json!([result])),
+        ];
+        let mut replies = replies.into_iter();
+        let lyrics = lookup(
+            "visa (feat. Abhi The Nomad)",
+            "again&again; Abhi The Nomad",
+            "visa (feat. Abhi The Nomad)",
+            166_000,
+            None,
+            |url| {
+                calls.push(url.to_owned());
+                replies.next().unwrap()
+            },
+        )
+        .unwrap();
+        assert_eq!(lyrics, "[00:01.00]Matched");
+        assert!(calls[2].contains("track_name=visa&artist_name=again%26again"));
+        let wrong = LrclibResponse {
+            synced_lyrics: Some("wrong".into()),
+            plain_lyrics: None,
+            track_name: "visa".into(),
+            artist_name: "someone else".into(),
+            album_name: "visa - Single".into(),
+            duration: Some(166.0),
+        };
+        assert!(!matches_identity(
+            &wrong,
+            "visa (feat. Abhi The Nomad)",
+            "again&again; Abhi The Nomad",
+            "visa (feat. Abhi The Nomad)",
+            166_000,
+        ));
     }
     #[test]
     fn cancellation_never_contacts_lrclib_or_returns_a_partial_result() {
