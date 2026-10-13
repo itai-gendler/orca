@@ -239,12 +239,38 @@ pub(super) fn run(worker: LibraryWorker) {
                         let _ = events.send(Event::Context(backend.track(&target)?));
                     }
                     Request::PlaylistChoices(song_id) => {
-                        let groups = backend.groups("playlists", "")?;
+                        let groups = backend
+                            .groups("playlists", "")?
+                            .into_iter()
+                            .filter(|group| group.key != "liked")
+                            .collect();
                         let selected = backend.song_playlist_ids(song_id)?;
                         let _ = events.send(Event::PlaylistChoices(song_id, groups, selected));
                     }
+                    Request::LikedStatus(song_id) => {
+                        let liked = backend.is_song_liked(song_id)?;
+                        let _ = events.send(Event::LikedStatus(song_id, liked));
+                    }
+                    Request::ToggleLiked(song_id) => {
+                        let liked = !backend.is_song_liked(song_id)?;
+                        backend.set_song_liked(song_id, liked)?;
+                        let _ = events.send(Event::LikedStatus(song_id, liked));
+                        let _ = events.send(Event::PlaylistChanged(
+                            orca_services::types::PlaylistChange::Membership,
+                        ));
+                    }
                     Request::Playlist(edit) => {
+                        let removed_likes = match &edit {
+                            orca_services::types::PlaylistEdit::RemoveMany {
+                                id: None,
+                                song_ids,
+                            } => song_ids.clone(),
+                            _ => Vec::new(),
+                        };
                         let action = backend.edit_playlist(edit)?;
+                        for song_id in removed_likes {
+                            let _ = events.send(Event::LikedStatus(song_id, false));
+                        }
                         let _ = events.send(Event::Playlists(backend.groups("playlists", "")?));
                         let _ = events.send(Event::PlaylistChanged(action));
                     }

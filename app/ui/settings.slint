@@ -106,6 +106,8 @@ export component SettingsView inherits Rectangle {
                     ComboBox {enabled:AppState.focus-layer=="browse";model:["Icon-only","Labels"];current-index:AppState.icon-sidebar ? 0 : 1;selected(value) => {AppState.icon-sidebar=self.current-index==0;AppState.save-settings();}}}
                 if AppState.setting-matches("Seekbar style classic slider decoded waveform",AppState.search): SettingRow {title:"Seekbar style";description:"Choose between the classic slider and a decoded waveform";
                     ComboBox {enabled:AppState.focus-layer=="browse";model:["Waveform","Classic"];current-index:AppState.seek-style=="waveform" ? 0 : 1;selected(value) => {AppState.seek-style=self.current-index==0 ? "waveform" : "classic";AppState.save-settings();}}}
+                if AppState.setting-matches("Liked Songs favorites heart controls",AppState.search): SettingRow {title:"Liked Songs";description:"Show Liked Songs in Playlists and the Like action in player controls. Your saved likes stay when hidden.";
+                    ToggleSwitch {label:"Liked Songs";x:178px;y:12px;checked <=> AppState.show-liked-songs;toggled => {AppState.save-settings();AppState.browse();}}}
                 if AppState.setting-matches("Keyboard shortcuts",AppState.search): Text {text:"Keyboard shortcuts";color:AppState.ink;font-size:14px;font-weight:600;}
                 if AppState.setting-matches("Keyboard shortcuts",AppState.search): Rectangle {
                     height:460px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);border-radius:6px;

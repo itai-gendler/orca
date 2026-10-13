@@ -73,11 +73,12 @@ export component IconButton inherits Rectangle {
     in property <bool> outlined: false;
     in property <bool> primary: false;
     in property <bool> active: false;
+    in property <bool> active-icon-only: false;
     out property<bool> has-hover:pointer.has-hover;
     callback clicked();
     width: 40px; height: 40px;
     border-radius: root.round ? root.width / 2 : 6px;
-    background: root.primary ? root.ink : root.active ? root.accent.with-alpha(0.12) : pointer.has-hover ? root.ink.with-alpha(0.0784) : transparent;
+    background: root.primary ? root.ink : root.active && !root.active-icon-only ? root.accent.with-alpha(0.12) : pointer.has-hover ? root.ink.with-alpha(0.0784) : transparent;
     border-width: focus.has-focus && AppState.keyboard-navigation ? 2px : root.outlined ? 1px : 0px;
     border-color:focus.has-focus && AppState.keyboard-navigation ? root.ink : root.ink.with-alpha(0.1020);
     Image { width:root.icon-size; height:root.icon-size; x:(parent.width - self.width)/2; y:(parent.height - self.height)/2;
@@ -175,16 +176,17 @@ export component PlaybackControls inherits HorizontalLayout {
     private property<color> inverse-ink:root.dark ? black : AppState.inverse-ink;
     private property<color> accent:root.dark ? AppState.player-accent : AppState.accent;
     in property <bool> large;
-    spacing:root.large ? 24px : 12px;
+    in property <bool> prominent:false;
+    spacing:root.prominent ? 14px : root.large ? 16px : 12px;
     alignment:center;
-    IconButton {label:"Shuffle";layer:root.layer; dark:root.dark; icon:Icons.shuffle; round:true; active:AppState.shuffle;
+    IconButton {label:"Shuffle";layer:root.layer; dark:root.dark; icon:Icons.shuffle; icon-size:root.prominent ? 22px : 20px;width:root.prominent ? 44px : 40px;height:self.width;round:true; active:AppState.shuffle;
         clicked => {AppState.command("shuffle",0);} }
-    IconButton {label:"Previous track";layer:root.layer; dark:root.dark; icon:Icons.previous; round:true; clicked => {AppState.command("previous",0);} }
-    IconButton {layer:root.layer; dark:root.dark; label:AppState.playing ? "Pause" : "Play";icon:AppState.playing ? Icons.pause : Icons.play; round:true; primary:true;
-        width:root.large ? 56px : 44px; height:self.width;
+    IconButton {label:"Previous track";layer:root.layer; dark:root.dark; icon:Icons.previous;icon-size:root.prominent ? 22px : 20px;width:root.prominent ? 44px : 40px;height:self.width;round:true; clicked => {AppState.command("previous",0);} }
+    IconButton {layer:root.layer; dark:root.dark; label:AppState.playing ? "Pause" : "Play";icon:AppState.playing ? Icons.pause : Icons.play;icon-size:root.prominent ? 24px : 20px;round:true; primary:true;
+        width:root.prominent ? 56px : root.large ? 52px : 44px; height:self.width;
         clicked => {AppState.command("toggle",0);} }
-    IconButton {label:"Next track";layer:root.layer; dark:root.dark; icon:Icons.next; round:true; clicked => {AppState.command("next",0);} }
-    IconButton {label:"Repeat";layer:root.layer; dark:root.dark; icon:Icons.repeat; round:true; active:AppState.repeat>0;
+    IconButton {label:"Next track";layer:root.layer; dark:root.dark; icon:Icons.next;icon-size:root.prominent ? 22px : 20px;width:root.prominent ? 44px : 40px;height:self.width;round:true; clicked => {AppState.command("next",0);} }
+    IconButton {label:"Repeat";layer:root.layer; dark:root.dark; icon:Icons.repeat;icon-size:root.prominent ? 22px : 20px;width:root.prominent ? 44px : 40px;height:self.width;round:true; active:AppState.repeat>0;
         clicked => {AppState.command("repeat",0);} }
 }
 
@@ -219,7 +221,7 @@ export component SeekBar inherits Rectangle {
                 Image { x:0px;y:0px;width:track.width; height:track.height; source:AppState.waveform; image-fit:fill; colorize:root.accent; }
             }
             if AppState.seek-style!="waveform": Rectangle {
-                y:(parent.height - 3px)/2; height:3px; background:root.ink.with-alpha(0.1608);
+                y:(parent.height - (root.stacked ? 6px : 3px))/2; height:root.stacked ? 6px : 3px;border-radius:root.stacked ? 3px : 0px;background:root.ink.with-alpha(0.1608);
                 Rectangle { x:0px;y:0px;height:parent.height;width:parent.width*root.progress; background:root.accent; }
             }
             pointer := TouchArea {

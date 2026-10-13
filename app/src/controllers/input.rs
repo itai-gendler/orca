@@ -5,7 +5,10 @@ use crate::{
     AppState, OrcaWindow,
 };
 use slint::ComponentHandle;
-use std::{cell::Cell, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    time::{Duration, Instant},
+};
 pub(crate) fn play_request(ui: &OrcaWindow, path: String) -> Request {
     Request::Play(path, false, query(ui).0)
 }
@@ -19,6 +22,163 @@ pub(crate) fn command_request(
         "queue-context" => Request::Collection(CollectionAction::AddToQueue, query(ui).0),
         _ => Request::Command(PlayerAction::parse(&action)?),
     })
+}
+
+#[derive(Default)]
+struct PlayerSwipe {
+    last_event: Option<Instant>,
+    last_magnitude: f32,
+    distance: f32,
+    triggered: bool,
+}
+
+impl PlayerSwipe {
+    fn update(&mut self, now: Instant, dx: f32, dy: f32) -> (bool, Option<PlayerAction>) {
+        if !dx.is_finite() || !dy.is_finite() {
+            return (false, None);
+        }
+        let gap = self
+            .last_event
+            .map(|last| now.saturating_duration_since(last));
+        // Inertia decays to small deltas. A fresh strong movement after that
+        // decay can start another swipe without waiting out the inertia latch.
+        let fresh_motion = self.triggered
+            && dx.abs() >= 30.0
+            && dx.abs() >= dy.abs() * 1.5
+            && (gap.is_some_and(|gap| {
+                gap >= Duration::from_millis(180) && self.last_magnitude <= 12.0
+            }) || gap.is_some_and(|gap| gap >= Duration::from_millis(80))
+                && dx.signum() != self.distance.signum());
+        let quiet_period = if self.triggered { 1200 } else { 500 };
+        if fresh_motion || gap.is_none_or(|gap| gap > Duration::from_millis(quiet_period)) {
+            self.distance = 0.0;
+            self.triggered = false;
+        }
+        self.last_event = Some(now);
+        if dx.abs() < 1.0 || dx.abs() < dy.abs() * 1.5 {
+            if !self.triggered {
+                self.distance = 0.0;
+            }
+            self.last_magnitude = dx.abs();
+            return (false, None);
+        }
+        self.last_magnitude = dx.abs();
+        if self.triggered {
+            return (true, None);
+        }
+        if self.distance.signum() != dx.signum() {
+            self.distance = 0.0;
+        }
+        self.distance += dx;
+        if self.distance.abs() >= 85.0 {
+            self.triggered = true;
+            return (
+                true,
+                Some(if self.distance < 0.0 {
+                    PlayerAction::Next
+                } else {
+                    PlayerAction::Previous
+                }),
+            );
+        }
+        (true, None)
+    }
+}
+
+pub(crate) fn install_player_swipe(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Request>) {
+    let weak = ui.as_weak();
+    let tracker = RefCell::new(PlayerSwipe::default());
+    let motion_timer = slint::Timer::default();
+    ui.global::<AppState>().on_player_swipe(move |dx, dy| {
+        let Some(ui) = weak.upgrade() else {
+            return false;
+        };
+        let state = ui.global::<AppState>();
+        if state.get_now().path.is_empty()
+            || state.get_queue_open()
+            || state.get_playlist_picker_open()
+        {
+            return false;
+        }
+        let (handled, action) = tracker.borrow_mut().update(Instant::now(), dx, dy);
+        if let Some(action) = action {
+            state.set_player_swipe_offset(if action == PlayerAction::Next {
+                -20.0
+            } else {
+                20.0
+            });
+            let weak = weak.clone();
+            motion_timer.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_millis(85),
+                move || {
+                    if let Some(ui) = weak.upgrade() {
+                        ui.global::<AppState>().set_player_swipe_offset(0.0);
+                    }
+                },
+            );
+            let _ = tx.send(Request::Command(action));
+        }
+        handled
+    });
+}
+
+#[cfg(test)]
+#[test]
+fn horizontal_swipe_skips_once_without_reacting_to_vertical_scroll() {
+    let start = Instant::now();
+    let mut swipe = PlayerSwipe::default();
+    assert_eq!(swipe.update(start, 15.0, 40.0), (false, None));
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(20), -55.0, 2.0),
+        (true, None)
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(40), -55.0, 2.0),
+        (true, Some(PlayerAction::Next))
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(80), -200.0, 0.0),
+        (true, None)
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(780), -200.0, 0.0),
+        (true, None)
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(1580), -200.0, 0.0),
+        (true, None)
+    );
+    let later = start + Duration::from_millis(3100);
+    assert_eq!(swipe.update(later, 55.0, 0.0), (true, None));
+    assert_eq!(
+        swipe.update(later + Duration::from_millis(20), 55.0, 0.0),
+        (true, Some(PlayerAction::Previous))
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn new_swipe_after_inertia_tail_does_not_wait_for_full_cooldown() {
+    let start = Instant::now();
+    let mut swipe = PlayerSwipe::default();
+    assert_eq!(swipe.update(start, -55.0, 0.0), (true, None));
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(20), -55.0, 0.0),
+        (true, Some(PlayerAction::Next))
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(100), -8.0, 0.0),
+        (true, None)
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(310), -55.0, 0.0),
+        (true, None)
+    );
+    assert_eq!(
+        swipe.update(start + Duration::from_millis(330), -55.0, 0.0),
+        (true, Some(PlayerAction::Next))
+    );
 }
 
 pub(crate) fn install_keyboard(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Request>) {

@@ -31,6 +31,7 @@ pub(crate) fn settings(ui: &OrcaWindow) -> Settings {
         sort: s.get_sort().into(),
         scale: s.get_scale(),
         quality_info: s.get_quality_info(),
+        show_liked_songs: s.get_show_liked_songs(),
         dynamic_accent: s.get_dynamic_accent(),
         blurred_background: s.get_blurred_background(),
         gapless: s.get_gapless(),
@@ -52,6 +53,7 @@ pub(crate) fn apply_settings(ui: &OrcaWindow, s: Settings) {
     a.set_sort(s.sort.into());
     a.set_scale(s.scale);
     a.set_quality_info(s.quality_info);
+    a.set_show_liked_songs(s.show_liked_songs);
     a.set_dynamic_accent(s.dynamic_accent);
     a.set_blurred_background(s.blurred_background);
     a.set_gapless(s.gapless);

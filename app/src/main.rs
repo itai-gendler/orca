@@ -21,7 +21,7 @@ use views::{models, presentation};
 
 use controllers::{
     browse::query,
-    input::{command_request, install_keyboard, play_request},
+    input::{command_request, install_keyboard, install_player_swipe, play_request},
     preferences::{apply_settings, clean_folder_path, setting_matches, settings},
 };
 use orca_services::types::Track;
@@ -232,6 +232,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
     install_keyboard(&ui, service.tx.clone());
+    install_player_swipe(&ui, service.tx.clone());
     controllers::preferences::install(&ui, service.tx.clone(), settings_timer.clone());
     controllers::collections::install(&ui, service.tx.clone());
     controllers::editor::install(&ui, service.tx.clone());

@@ -20,12 +20,114 @@ pub(super) fn verify(case: &mut UiCase) {
         title: "Playing song".into(),
         ..Default::default()
     });
+    let (swipe_tx, swipe_rx) = std::sync::mpsc::channel();
+    controllers::input::install_player_swipe(ui, swipe_tx.clone());
     let (playlist_tx, playlist_rx) = std::sync::mpsc::channel();
     controllers::playlists::install(ui, playlist_tx);
+    state.set_view("playlists".into());
+    state.set_detail_key("7".into());
+    state.set_detail_title("Test playlist".into());
+    let previous_songs = state.get_songs();
+    state.set_songs(
+        Rc::new(VecModel::from(vec![
+            Song {
+                id: 1,
+                path: "one.wav".into(),
+                title: "One".into(),
+                ..Default::default()
+            },
+            Song {
+                id: 2,
+                path: "two.wav".into(),
+                title: "Two".into(),
+                ..Default::default()
+            },
+        ]))
+        .into(),
+    );
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    click(window, 878.0, 323.0);
+    assert!(state.get_playlist_selection_mode());
+    click(window, 300.0, 362.0);
+    click(window, 300.0, 405.0);
+    assert_eq!(state.get_playlist_selection_count(), 2);
+    assert!(state.invoke_playlist_song_selected(1, state.get_playlist_selection_revision()));
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "playlist-multiselect");
+    state.invoke_playlist_selection("remove".into(), 0);
+    assert!(!state.get_playlist_selection_mode());
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::Playlist(crate::protocol::PlaylistEdit::RemoveMany { id: Some(7), song_ids })
+            if song_ids.len() == 2 && song_ids.contains(&1) && song_ids.contains(&2)
+    ));
+    state.invoke_playlist_selection("start".into(), 0);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(300.0, 362.0),
+        button: PointerEventButton::Left,
+    });
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(300.0, 407.0),
+    });
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(300.0, 407.0),
+        button: PointerEventButton::Left,
+    });
+    assert_eq!(state.get_playlist_selection_count(), 2);
+    state.invoke_playlist_selection("cancel".into(), 0);
+    state.set_detail_key("liked".into());
+    state.set_detail_title("Liked Songs".into());
+    state.set_detail_cover_missing(true);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "liked-songs-dark");
+    state.set_light_theme(true);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "liked-songs-light");
+    state.set_light_theme(false);
+    state.invoke_playlist_selection("start".into(), 0);
+    state.invoke_playlist_selection("toggle".into(), 42);
+    state.invoke_playlist_selection("remove".into(), 0);
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::Playlist(crate::protocol::PlaylistEdit::RemoveMany { id: None, song_ids })
+            if song_ids == vec![42]
+    ));
+    state.set_detail_key("".into());
+    state.set_view("songs".into());
+    state.set_songs(previous_songs);
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
     screenshot(pixels, "player-controls-smoke");
+    window.dispatch_event(WindowEvent::PointerScrolled {
+        position: slint::LogicalPosition::new(110.0, 775.0),
+        delta_x: 20.0,
+        delta_y: -40.0,
+    });
+    assert!(swipe_rx.try_recv().is_err());
+    for _ in 0..3 {
+        window.dispatch_event(WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(110.0, 775.0),
+            delta_x: -55.0,
+            delta_y: 0.0,
+        });
+    }
+    assert!(matches!(
+        swipe_rx.try_recv().unwrap(),
+        Request::Command(crate::protocol::PlayerAction::Next)
+    ));
+    assert!(swipe_rx.try_recv().is_err());
     click(window, 1104.0, 772.0);
     assert!(state.get_playlist_picker_open());
     assert!(matches!(
@@ -76,6 +178,16 @@ pub(super) fn verify(case: &mut UiCase) {
     ));
     click(window, 800.0, 400.0);
     assert!(!state.get_playlist_picker_open());
+    click(window, 1064.0, 772.0);
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::ToggleLiked(42)
+    ));
+    state.set_liked(true);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "player-liked-song");
     click(window, 1152.0, 772.0);
     assert!(state.get_lyrics_open());
     window.draw_if_needed(|renderer| {
@@ -83,6 +195,16 @@ pub(super) fn verify(case: &mut UiCase) {
     });
     screenshot(pixels, "inline-lyrics-docked");
     assert!(state.get_lyrics_width() > 200.0);
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(1244.0, 764.0),
+    });
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(1244.0, 666.0),
+    });
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "volume-over-lyrics");
     click(window, 1232.0, 48.0);
     assert!(!state.get_lyrics_open());
     window.set_size(slint::PhysicalSize::new(560, 820));
@@ -113,6 +235,61 @@ pub(super) fn verify(case: &mut UiCase) {
     click(window, 512.0, 48.0);
     assert!(!state.get_lyrics_open());
     window.set_size(slint::PhysicalSize::new(1280, 820));
+    let mut playing = state.get_now();
+    playing.artist = "Artist".into();
+    playing.album = "Album".into();
+    playing.quality = "FLAC | 44.1 KHZ | 965 KBPS".into();
+    state.set_now(playing);
+    state.set_full_player(true);
+    controllers::input::install_player_swipe(ui, swipe_tx);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    for _ in 0..3 {
+        window.dispatch_event(WindowEvent::PointerScrolled {
+            position: slint::LogicalPosition::new(640.0, 300.0),
+            delta_x: 55.0,
+            delta_y: 0.0,
+        });
+    }
+    assert!(matches!(
+        swipe_rx.try_recv().unwrap(),
+        Request::Command(crate::protocol::PlayerAction::Previous)
+    ));
+    screenshot(pixels, "full-player-like-and-playlist");
+    state.set_lyrics_open(true);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "full-player-lyrics-controls");
+    window.set_size(slint::PhysicalSize::new(960, 820));
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "compact-full-player-lyrics");
+    window.set_size(slint::PhysicalSize::new(1280, 820));
+    state.set_lyrics_open(false);
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    click(window, 474.0, 712.0);
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::ToggleLiked(42)
+    ));
+    click(window, 806.0, 712.0);
+    assert!(state.get_playlist_picker_open());
+    assert!(matches!(
+        playlist_rx.try_recv().unwrap(),
+        Request::PlaylistChoices(42)
+    ));
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "full-player-playlist-picker");
+    click(window, 800.0, 400.0);
+    state.set_full_player(false);
+    state.set_liked(false);
     state.set_playlists(Default::default());
     state.set_now(previous_song);
     state.set_volume(0.5);

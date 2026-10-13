@@ -101,6 +101,13 @@ pub(super) fn apply(
                 }
             }
             Event::Groups(at, rows) if at == poll_service.latest_query.load(Ordering::Relaxed) => {
+                let rows: Vec<_> = if s.get_view() == "playlists" && !s.get_show_liked_songs() {
+                    rows.into_iter()
+                        .filter(|group| group.key != "liked")
+                        .collect()
+                } else {
+                    rows
+                };
                 s.set_catalog_summary(
                     format!(
                         "{} {}",
@@ -183,6 +190,10 @@ pub(super) fn apply(
                     continue;
                 }
                 neighbors.borrow_mut().clear();
+                s.set_liked(false);
+                if track.id > 0 {
+                    let _ = poll_service.tx.send(Request::LikedStatus(track.id));
+                }
                 neighbor_revision.set(neighbor_revision.get().wrapping_add(1));
                 if track.path.is_empty() {
                     reset_empty_player(ui);
@@ -270,6 +281,7 @@ pub(super) fn apply(
                     Rc::new(VecModel::from(
                         groups
                             .into_iter()
+                            .filter(|group| group.key != "liked")
                             .map(|group| CatalogGroup {
                                 key: group.key.into(),
                                 secondary: group.secondary.into(),
@@ -304,6 +316,9 @@ pub(super) fn apply(
                     .into(),
                 );
                 s.set_playlist_picker_loading(false);
+            }
+            Event::LikedStatus(song_id, liked) if now.borrow().id == song_id => {
+                s.set_liked(liked);
             }
             Event::Jump(at, index) if at == poll_service.latest_query.load(Ordering::Relaxed) => {
                 s.set_jump_index(index as i32);

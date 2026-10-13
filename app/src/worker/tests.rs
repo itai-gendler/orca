@@ -432,6 +432,7 @@ fn older_settings_keep_visual_defaults_and_minimal_options_round_trip() {
             .unwrap();
     assert!(old.browse_artwork && old.compact_artwork && old.full_artwork);
     assert!(!old.light_theme);
+    assert!(old.show_liked_songs);
     assert_eq!(old.font_family, "Custom");
     let mut minimal = old;
     minimal.browse_artwork = false;
@@ -439,6 +440,7 @@ fn older_settings_keep_visual_defaults_and_minimal_options_round_trip() {
     minimal.full_artwork = false;
     minimal.blurred_background = false;
     minimal.light_theme = true;
+    minimal.show_liked_songs = false;
     let restored: Settings =
         serde_json::from_str(&serde_json::to_string(&minimal).unwrap()).unwrap();
     assert!(
@@ -449,6 +451,7 @@ fn older_settings_keep_visual_defaults_and_minimal_options_round_trip() {
     );
     assert_eq!(restored.font_family, "Custom");
     assert!(restored.light_theme);
+    assert!(!restored.show_liked_songs);
     assert!(serde_json::to_value(&restored)
         .unwrap()
         .get("animated_lyrics")

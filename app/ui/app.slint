@@ -24,6 +24,8 @@ export component OrcaWindow inherits Window {
     private property <length> sidebar-width:AppState.icon-sidebar ? 56px : 132px;
     private property<string> active-view:AppState.view;
     changed active-view=>{AppState.menu-open=false;AppState.collection-menu-open=false;if AppState.view=="settings" || AppState.view=="songs" {AppState.detail-key="";}}
+    private property<string> selection-context:AppState.view+":"+AppState.detail-key;
+    changed selection-context=>{AppState.playlist-selection("cancel",0);}
     private property<bool> dialog-active:AppState.modal-open;
     changed dialog-active=>{if !AppState.modal-open {root.focus-shell();}}
     private property<bool> compact:root.width<1024px;
@@ -107,6 +109,7 @@ export component OrcaWindow inherits Window {
             if AppState.view=="folders": FoldersView {y:AppState.detail-key=="" ? root.header-height : 0px;height:parent.height - self.y;}
             if AppState.view=="settings": SettingsView {y:root.header-height;height:parent.height - self.y;}
         }
+        if root.inline-lyrics: InlineLyricsPanel {available-width:root.width - root.sidebar-width;available-height:root.height - root.player-height - 40px;panel-width:root.inline-lyrics-width;x:root.width - self.width - 16px;y:20px;}
         PlayerBar {x:root.sidebar-width;y:root.height - root.player-height;width:root.width - self.x;height:root.player-height;}
     }
     full-focus:=FocusScope {
@@ -117,11 +120,10 @@ export component OrcaWindow inherits Window {
         changed active=>{if AppState.full-player {full-focus.focus();} else if !AppState.search-focus-pending {shell.focus();}}
         if AppState.full-player: FullPlayer {}
     }
-    if root.inline-lyrics: InlineLyricsPanel {available-width:root.width - root.sidebar-width;available-height:root.height - root.player-height - 40px;panel-width:root.inline-lyrics-width;x:root.width - self.width - 16px;y:20px;}
     if AppState.queue-open: TouchArea {clicked => {AppState.queue-open=false;}}
     if AppState.queue-open: QueuePanel {available-width:root.width;available-height:root.height;x:root.width - self.width - 24px;y:root.height - self.height - 24px;}
-    if !AppState.full-player && AppState.playlist-picker-open: TouchArea {clicked=>{AppState.playlist-picker-open=false;}}
-    if !AppState.full-player && AppState.playlist-picker-open: PlaylistPicker {x:root.width - self.width - 24px;y:root.height - root.player-height - self.height - 12px;}
+    if AppState.playlist-picker-open: TouchArea {clicked=>{AppState.playlist-picker-open=false;}}
+    if AppState.playlist-picker-open: PlaylistPicker {dark:AppState.full-player && AppState.full-player-dark;x:root.width - self.width - 24px;y:AppState.full-player ? 104px : root.height - root.player-height - self.height - 12px;}
     if AppState.menu-open: TouchArea {clicked => {AppState.menu-open=false;}}
     if AppState.menu-open: TrackMenu {x:clamp(AppState.menu-x*1px,8px,root.width - self.width - 8px);y:clamp(AppState.menu-y*1px,8px,root.height - self.height - 8px);}
     if AppState.metadata-open: Rectangle {

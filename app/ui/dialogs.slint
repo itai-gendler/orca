@@ -18,8 +18,9 @@ component MenuItem inherits Rectangle {
 }
 export component TrackMenu inherits Rectangle {
     init=>{first.take-focus();}
-    width:244px;height:174px+(AppState.playlists.length>0 ? 28px+min(192px,AppState.playlists.length*32px) : 0px);background:AppState.panel;border-color:AppState.ink.with-alpha(0.1020);border-width:1px;border-radius:6px;clip:true;
-    VerticalLayout {x:0px;y:0px;height:174px;padding-top:10px;padding-bottom:6px;spacing:0;
+    private property<bool> in-playlist:AppState.view=="playlists" && AppState.detail-key!="";
+    width:244px;height:174px+(root.in-playlist ? 36px : 0px)+(AppState.playlists.length>0 ? 28px+min(192px,AppState.playlists.length*32px) : 0px);background:AppState.panel;border-color:AppState.ink.with-alpha(0.1020);border-width:1px;border-radius:6px;clip:true;
+    VerticalLayout {x:0px;y:0px;height:174px+(root.in-playlist ? 36px : 0px);padding-top:10px;padding-bottom:6px;spacing:0;
         Rectangle {height:48px;
             Text {x:12px;y:0px;width:parent.width - 24px;height:22px;text:AppState.menu-song.title;color:AppState.ink;font-size:13px;font-weight:700;overflow:elide;}
             Text {x:12px;y:22px;width:parent.width - 24px;height:18px;text:AppState.menu-song.artist;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.6275) : 0.6275);font-size:12px;overflow:elide;}}
@@ -27,9 +28,10 @@ export component TrackMenu inherits Rectangle {
         first:=MenuItem {text:"Add to queue";triggered=>{AppState.queue-action("add",AppState.menu-song.path,"");}}
         MenuItem {text:"Edit metadata";triggered=>{AppState.metadata-action("load",AppState.menu-song.path);}}
         MenuItem {text:"Fetch cover online";triggered=>{AppState.metadata-action("load-fetch-cover",AppState.menu-song.path);}}
+        if root.in-playlist: MenuItem {text:AppState.detail-key=="liked" ? "Remove from Liked Songs" : "Remove from playlist";triggered=>{AppState.playlist-action("remove-menu","");}}
     }
-    if AppState.playlists.length>0: Text {x:12px;y:174px;height:28px;text:"ADD TO PLAYLIST";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.6275) : 0.6275);font-size:11px;font-weight:700;vertical-alignment:center;}
-    if AppState.playlists.length>0: ListView {x:0px;y:202px;height:parent.height - 202px;horizontal-scrollbar-policy:always-off;
+    if AppState.playlists.length>0: Text {x:12px;y:174px+(root.in-playlist ? 36px : 0px);height:28px;text:"ADD TO PLAYLIST";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.6275) : 0.6275);font-size:11px;font-weight:700;vertical-alignment:center;}
+    if AppState.playlists.length>0: ListView {x:0px;y:202px+(root.in-playlist ? 36px : 0px);height:parent.height - self.y;horizontal-scrollbar-policy:always-off;
         for playlist in AppState.playlists: MenuItem {height:32px;text:playlist.title;triggered=>{AppState.playlist-action("add",playlist.key);}}
     }
 }
