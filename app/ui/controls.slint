@@ -221,8 +221,9 @@ export component SeekBar inherits Rectangle {
                 Image { x:0px;y:0px;width:track.width; height:track.height; source:AppState.waveform; image-fit:fill; colorize:root.accent; }
             }
             if AppState.seek-style!="waveform": Rectangle {
-                y:(parent.height - (root.stacked ? 6px : 3px))/2; height:root.stacked ? 6px : 3px;border-radius:root.stacked ? 3px : 0px;background:root.ink.with-alpha(0.1608);
-                Rectangle { x:0px;y:0px;height:parent.height;width:parent.width*root.progress; background:root.accent; }
+                y:(parent.height - (root.stacked ? 4px : 2px))/2;height:root.stacked ? 4px : 2px;
+                border-radius:root.stacked ? 2px : 1px;clip:true;background:root.ink.with-alpha(0.1608);
+                Rectangle {x:0px;y:0px;height:parent.height;width:parent.width*root.progress;border-radius:parent.border-radius;background:root.accent;}
             }
             pointer := TouchArea {
                 pointer-event(event) => {
