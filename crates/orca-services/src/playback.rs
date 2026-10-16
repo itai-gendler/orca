@@ -106,6 +106,7 @@ impl Backend {
                 }
                 AudioCommand::SetVolume(value.clamp(0.0, 1.0))
             }
+            PlaybackCommand::ReplayGain(enabled) => AudioCommand::SetReplayGain(enabled),
         };
         tx.send(cmd).map_err(|_| "Audio device unavailable".into())
     }

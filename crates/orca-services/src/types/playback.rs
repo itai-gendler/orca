@@ -10,6 +10,7 @@ pub enum PlaybackCommand {
     ClearQueued,
     Seek(u64),
     Volume(f32),
+    ReplayGain(bool),
 }
 #[derive(Clone, Debug)]
 pub enum PlaylistEdit {

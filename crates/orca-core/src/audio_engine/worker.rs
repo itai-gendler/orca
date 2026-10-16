@@ -4,7 +4,10 @@ use crate::audio_output::{OutputConfig, OutputHandle};
 use log::error;
 use rodio::Sink;
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -15,10 +18,11 @@ fn restart_current_with_eq(
     state: &Arc<Mutex<PlaybackState>>,
     playing_flag: &mut bool,
     position_base_ms: &mut u64,
-    eq_enabled: bool,
-    eq_gains: [f32; 5],
+    eq: (bool, [f32; 5]),
+    replaygain: &Arc<AtomicBool>,
     visualizer: &Arc<Mutex<std::collections::VecDeque<f32>>>,
 ) {
+    let (eq_enabled, eq_gains) = eq;
     let snapshot = state
         .lock()
         .ok()
@@ -34,6 +38,7 @@ fn restart_current_with_eq(
         Duration::from_millis(position_ms),
         eq_enabled,
         eq_gains,
+        replaygain,
         visualizer,
     ) {
         Ok(duration_ms) => {
@@ -87,6 +92,7 @@ where
     let state = Arc::new(Mutex::new(PlaybackState::default()));
     let visualizer = VisualizerData::default();
     let thread_vis = Arc::clone(&visualizer.peaks);
+    let replaygain = Arc::new(AtomicBool::new(false));
     let thread_state = Arc::clone(&state);
     let thread_tx = tx.clone();
 
@@ -218,6 +224,7 @@ where
                                         Duration::from_millis(resume_position),
                                         eq_enabled,
                                         eq_gains,
+                                        &replaygain,
                                         &thread_vis,
                                     ) {
                                         Ok(duration) => {
@@ -268,6 +275,7 @@ where
                             Duration::from_millis(0),
                             eq_enabled,
                             eq_gains,
+                            &replaygain,
                             &thread_vis,
                         ) {
                             Ok(d) => {
@@ -309,6 +317,7 @@ where
                             start_position,
                             eq_enabled,
                             eq_gains,
+                            &replaygain,
                             &thread_vis,
                         ) {
                             Ok(d) => {
@@ -352,6 +361,7 @@ where
                                 Duration::from_millis(0),
                                 eq_enabled,
                                 eq_gains,
+                                &replaygain,
                                 &thread_vis,
                             ) {
                                 Ok(d) => {
@@ -431,6 +441,7 @@ where
                                 pos,
                                 eq_enabled,
                                 eq_gains,
+                                &replaygain,
                                 &thread_vis,
                             )
                             .map(|_| ())
@@ -464,6 +475,9 @@ where
                             s.volume = vol;
                         }
                     }
+                    AudioCommand::SetReplayGain(enabled) => {
+                        replaygain.store(enabled, Ordering::Relaxed);
+                    }
                     AudioCommand::SetEqEnabled(enabled) => {
                         eq_enabled = enabled;
                         restart_current_with_eq(
@@ -471,8 +485,8 @@ where
                             &thread_state,
                             &mut playing,
                             &mut position_base_ms,
-                            eq_enabled,
-                            eq_gains,
+                            (eq_enabled, eq_gains),
+                            &replaygain,
                             &thread_vis,
                         );
                     }
@@ -484,8 +498,8 @@ where
                                 &thread_state,
                                 &mut playing,
                                 &mut position_base_ms,
-                                eq_enabled,
-                                eq_gains,
+                                (eq_enabled, eq_gains),
+                                &replaygain,
                                 &thread_vis,
                             );
                         }
@@ -520,6 +534,7 @@ where
                                 Duration::from_millis(position),
                                 eq_enabled,
                                 eq_gains,
+                                &replaygain,
                                 &thread_vis,
                             ) {
                                 Ok(duration) => {
@@ -563,6 +578,7 @@ where
                             Duration::from_millis(0),
                             eq_enabled,
                             eq_gains,
+                            &replaygain,
                             &thread_vis,
                             Some(on_start),
                         ) {

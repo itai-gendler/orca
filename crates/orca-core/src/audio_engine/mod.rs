@@ -86,6 +86,7 @@ pub enum AudioCommand {
     Stop,
     Shutdown,
     SetVolume(f32),
+    SetReplayGain(bool),
     SetEqEnabled(bool),
     SetEqGains([f32; 5]),
     QueueNext(String),
