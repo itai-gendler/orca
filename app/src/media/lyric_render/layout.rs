@@ -1,4 +1,4 @@
-use super::{Config, Line, Prepared, Span};
+use super::{Config, Line, Prepared, Span, MIN_LYRIC_ROW_HEIGHT};
 use parley::{Alignment, AlignmentOptions, FontContext, FontWeight, LayoutContext, StyleProperty};
 use std::collections::HashMap;
 
@@ -18,9 +18,9 @@ pub(super) fn shape(
     let mut layout = builder.build(&line.text);
     layout.break_all_lines(Some(config.width as f32));
     layout.align(Alignment::Center, AlignmentOptions::default());
-    let height = (layout.height() + 32.0 * config.dpr)
+    let height = (layout.height() + 12.0 * config.dpr)
         .ceil()
-        .max(84.0 * config.dpr) as u32;
+        .max(MIN_LYRIC_ROW_HEIGHT * config.dpr) as u32;
     let padding = (height as f32 - layout.height()) / 2.0;
     let mut spans = vec![];
     for row in layout.lines() {

@@ -98,7 +98,7 @@ component LyricsViewport inherits Rectangle {
         for line[index] in AppState.lyrics: Rectangle {
             y:AppState.lyric-offset(index,AppState.lyric-layout-revision)*1px;
             width:lyrics.width;
-            height:max(84px,(AppState.lyric-offset(index+1,AppState.lyric-layout-revision) - AppState.lyric-offset(index,AppState.lyric-layout-revision))*1px);
+            height:max(68px,(AppState.lyric-offset(index+1,AppState.lyric-layout-revision) - AppState.lyric-offset(index,AppState.lyric-layout-revision))*1px);
             // Followed lyrics can use the row's blank padding when the actual
             // glyphs still fit. Manual scrolling reveals edges progressively.
             private property<length> ink-top:rendered.bitmap.width>0 ? rendered.ink-top*1px : max(0px,(self.height - AppState.lyric-font-size*1.2px)/2 - 3px);

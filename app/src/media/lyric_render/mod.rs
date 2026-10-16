@@ -19,6 +19,8 @@ use std::{
     time::Duration,
 };
 
+const MIN_LYRIC_ROW_HEIGHT: f32 = 68.0;
+
 #[derive(Clone, PartialEq)]
 pub struct Config {
     pub width: u32,
@@ -260,7 +262,7 @@ impl Renderer {
     pub fn get(&mut self, index: usize) -> LyricRender {
         if index >= self.heights.len() {
             return LyricRender {
-                height: 84.0,
+                height: MIN_LYRIC_ROW_HEIGHT,
                 ..Default::default()
             };
         }
@@ -279,14 +281,18 @@ impl Renderer {
             self.pending.insert(index);
         }
         LyricRender {
-            height: self.heights.get(index).copied().unwrap_or(84.0),
+            height: self
+                .heights
+                .get(index)
+                .copied()
+                .unwrap_or(MIN_LYRIC_ROW_HEIGHT),
             ..Default::default()
         }
     }
     pub fn offset(&self, index: usize) -> f32 {
         self.offsets.get(index).copied().unwrap_or_else(|| {
             self.offsets.last().copied().unwrap_or(0.0)
-                + index.saturating_sub(self.heights.len()) as f32 * 84.0
+                + index.saturating_sub(self.heights.len()) as f32 * MIN_LYRIC_ROW_HEIGHT
         })
     }
     pub fn drain(&mut self) -> bool {

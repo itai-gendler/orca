@@ -65,6 +65,7 @@ fn cached_glyphs_and_highlight_rectangles_share_the_same_coordinates() {
     assert_eq!(prepared.spans[0].time, 1000.0);
     assert_eq!(prepared.spans[1].end_time, 2000.0);
 }
+
 #[test]
 fn bitmap_completion_does_not_invalidate_lyric_layout() {
     let mut renderer = Renderer::new();
@@ -122,7 +123,7 @@ fn long_plain_lyrics_are_cached_with_matching_wrapped_row_offsets() {
         thread::sleep(Duration::from_millis(5));
     }
     renderer.invalidate();
-    assert_eq!(renderer.offset(2), 168.0);
+    assert_eq!(renderer.offset(2), 136.0);
 }
 #[test]
 fn wrapped_word_rectangles_progress_in_sequence() {
