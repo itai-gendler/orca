@@ -212,12 +212,6 @@ fn cafune_songs_resolve_identity_and_linked_deezer_portrait_without_wikidata() {
         ("api.deezer.com/search?".into(), Ok(json!({"data":[]}))),
         ("api.deezer.com/search?".into(), Ok(json!({"data":[]}))),
         (
-            "api.deezer.com/search/artist?".into(),
-            Ok(json!({"data":[
-                {"name":"Cafuné","id":1},{"name":"Cafuné","id":2}
-            ]})),
-        ),
-        (
             "musicbrainz.org/ws/2/artist?".into(),
             Ok(json!({"artists":[
                 {"name":"CAFUNÉ","id":"duo"},{"name":"Cafuné","id":"other"}

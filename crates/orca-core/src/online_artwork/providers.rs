@@ -140,12 +140,10 @@ fn deezer_album(query: &ArtworkQuery, client: &impl Transport) -> Result<Vec<Str
                         .as_str()
                         .is_some_and(|a| album_matches(&query.album, a))
             })
-            .filter_map(|a| {
-                a["cover_xl"]
-                    .as_str()
-                    .filter(|url| !url.contains("/images/cover//"))
-                    .map(str::to_owned)
-            }),
+            .flat_map(|a| [a["cover_xl"].as_str(), a["cover_big"].as_str()])
+            .flatten()
+            .filter(|url| !url.contains("/images/cover//"))
+            .map(str::to_owned),
     ))
 }
 pub(super) fn deezer_artist(
@@ -234,7 +232,7 @@ fn musicbrainz_album(
         array(&covers, "images")?
             .iter()
             .filter(|a| a["front"].as_bool() == Some(true))
-            .filter_map(|a| {
+            .flat_map(|a| {
                 [
                     a["thumbnails"]["1200"].as_str(),
                     a["thumbnails"]["large"].as_str(),
@@ -242,7 +240,6 @@ fn musicbrainz_album(
                 ]
                 .into_iter()
                 .flatten()
-                .next()
                 .map(str::to_owned)
             }),
     ))

@@ -66,12 +66,13 @@ fn itunes_identity_timeout_still_allows_a_verified_portrait_and_cancellation_sto
     query.title = Some("Sukoon".into());
     let script = Script::new(vec![
         ("itunes.apple.com".into(), Err(LookupError::TimedOut)),
-        ("api.deezer.com/search?".into(), Ok(json!({"data":[]}))),
         (
-            "api.deezer.com/search/artist".into(),
-            Ok(
-                json!({"data":[{"id":1,"name":"Gini","picture_xl":"https://image.test/portrait.png"}]}),
-            ),
+            "api.deezer.com/search?".into(),
+            Ok(json!({"data":[{"title":"Sukoon","artist":{"id":1,"name":"Gini"}}]})),
+        ),
+        (
+            "api.deezer.com/artist/1".into(),
+            Ok(json!({"id":1,"name":"Gini","picture_xl":"https://image.test/portrait.png"})),
         ),
     ]);
     assert!(lookup(&query, &f.0, LookupMode::Manual, |_| script.clone()).is_ok());
@@ -83,6 +84,20 @@ fn itunes_identity_timeout_still_allows_a_verified_portrait_and_cancellation_sto
         LookupError::Cancelled
     );
     assert_eq!(cancelled.calls.borrow().len(), 1);
+}
+
+#[test]
+fn unmatched_recordings_never_fall_back_to_a_same_name_artist_portrait() {
+    let mut query = ArtworkQuery::artist("Bharat Chandak");
+    query.title = Some("Mera Dil".into());
+    let script = Script::new(vec![(
+        "api.deezer.com/search?".into(),
+        Ok(json!({"data":[]})),
+    )]);
+    assert!(providers::candidates(Provider::Deezer, &query, &script)
+        .unwrap()
+        .is_empty());
+    assert_eq!(script.calls.borrow().len(), 1);
 }
 
 #[test]
@@ -392,6 +407,47 @@ fn cancellation_during_search_stops_fallbacks_and_does_not_cache_a_miss() {
 fn album_result() -> Value {
     json!({"data":[{"id":1,"artist":{"name":"Artist"},"title":"Album","cover_xl":"https://image.test/cover.png"}]})
 }
+
+#[test]
+fn deezer_album_keeps_a_second_image_size_when_xl_is_unavailable() {
+    let script = Script::new(vec![(
+        "api.deezer.com".into(),
+        Ok(json!({
+            "data":[{"artist":{"name":"Artist"},"title":"Album",
+            "cover_xl":"https://image.test/xl.png","cover_big":"https://image.test/big.png"}]
+        })),
+    )]);
+    assert_eq!(
+        providers::candidates(Provider::Deezer, &query(), &script).unwrap(),
+        ["https://image.test/xl.png", "https://image.test/big.png"]
+    );
+}
+
+#[test]
+fn musicbrainz_album_keeps_thumbnail_and_original_image_fallbacks() {
+    let script = Script::new(vec![
+        (
+            "musicbrainz.org".into(),
+            Ok(json!({"release-groups":[{
+                "id":"mbid","title":"Album","artist-credit":[{"artist":{"name":"Artist"}}]
+            }]})),
+        ),
+        (
+            "coverartarchive.org".into(),
+            Ok(json!({"images":[{"front":true,
+            "thumbnails":{"1200":"https://image.test/1200.png","large":"https://image.test/large.png"},
+            "image":"https://image.test/original.png"}]})),
+        ),
+    ]);
+    assert_eq!(
+        providers::candidates(Provider::MusicBrainz, &query(), &script).unwrap(),
+        [
+            "https://image.test/1200.png",
+            "https://image.test/large.png",
+            "https://image.test/original.png"
+        ]
+    );
+}
 fn query() -> ArtworkQuery {
     ArtworkQuery::album("Artist", "Album", None)
 }
@@ -403,6 +459,15 @@ fn version_and_album_identity_are_preserved_and_duration_rejects_other_recording
     assert!(!album_matches(
         "Morning Glory",
         "Morning Glory (Remastered)"
+    ));
+    assert!(album_matches(
+        "Face to Face (Deluxe)",
+        "Face to Face (Deluxe Edition) [2011 Remaster]"
+    ));
+    assert!(!album_matches("Face to Face (Deluxe)", "Face to Face"));
+    assert!(!album_matches(
+        "Face to Face (Deluxe)",
+        "Face to Face (2004 Bonus Tracks Edition)"
     ));
     assert!(album_matches(
         "Two New Malcolm Todd Songs",
@@ -417,6 +482,32 @@ fn version_and_album_identity_are_preserved_and_duration_rejects_other_recording
     track["collectionName"] = json!("Album");
     track["trackTimeMillis"] = json!(180000);
     assert!(!track_matches(&track, &q));
+}
+
+#[test]
+fn itunes_accepts_an_equivalent_deluxe_release_title() {
+    let mut query = ArtworkQuery::album(
+        "The Kinks",
+        "Face to Face (Deluxe)",
+        Some("Sunny Afternoon"),
+    );
+    query.duration_ms = Some(215_000);
+    let script = Script::new(vec![(
+        "itunes.apple.com".into(),
+        Ok(json!({"results":[
+            {"artistName":"The Kinks","trackName":"Sunny Afternoon",
+             "collectionName":"Face to Face (Deluxe Edition) [2011 Remaster]",
+             "trackTimeMillis":215000,"collectionId":1,
+             "artworkUrl100":"https://image.test/100x100bb.jpg"},
+            {"artistName":"The Kinks","trackName":"Sunny Afternoon",
+             "collectionName":"Face to Face","trackTimeMillis":215000,
+             "collectionId":2,"artworkUrl100":"https://image.test/wrong.jpg"}
+        ]})),
+    )]);
+    assert_eq!(
+        providers::candidates(Provider::Itunes, &query, &script).unwrap(),
+        ["https://image.test/600x600bb.jpg"]
+    );
 }
 #[test]
 fn stalled_first_provider_does_not_prevent_deezer_and_success_is_reused() {

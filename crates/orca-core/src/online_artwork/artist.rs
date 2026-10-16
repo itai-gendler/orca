@@ -130,6 +130,7 @@ pub(super) fn deezer(
     query: &ArtworkQuery,
     client: &impl Transport,
 ) -> Result<Vec<String>, LookupError> {
+    let has_recording_evidence = !recordings(query).is_empty();
     let mut evidence = None;
     for recording in recordings(query) {
         if client.cancelled() {
@@ -200,7 +201,13 @@ pub(super) fn deezer(
             .map(str::to_owned),
         ));
     }
-    super::providers::deezer_artist(&query.artist, client)
+    if has_recording_evidence {
+        // A name-only result can refer to a different artist when none of the
+        // library recordings match. Leave the existing cover alone instead.
+        Ok(vec![])
+    } else {
+        super::providers::deezer_artist(&query.artist, client)
+    }
 }
 
 pub(super) fn musicbrainz_identity(
