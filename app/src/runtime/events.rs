@@ -43,6 +43,7 @@ pub(super) fn apply(
         match event {
             Event::Font(path, bytes) => match register_font(bytes) {
                 Ok(family) => {
+                    s.set_custom_font_family(family.clone().into());
                     s.set_font_family(family.into());
                     s.set_font_path(path.into());
                     s.invoke_save_settings();

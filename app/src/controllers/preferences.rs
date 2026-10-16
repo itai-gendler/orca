@@ -66,13 +66,28 @@ pub(crate) fn apply_settings(ui: &OrcaWindow, s: Settings) {
             .and_then(register_font)
         {
             Ok(family) => {
-                a.set_font_family(family.into());
+                a.set_font_family(
+                    if s.font_family.is_empty() || s.font_family == "Plus Jakarta Sans" {
+                        s.font_family
+                    } else {
+                        family.clone()
+                    }
+                    .into(),
+                );
+                a.set_custom_font_family(family.into());
                 a.set_font_path(s.font_path.into());
             }
-            Err(error) => a.set_error(format!("Custom font unavailable: {error}").into()),
+            Err(error) => {
+                a.set_font_family("Plus Jakarta Sans".into());
+                a.set_custom_font_family("".into());
+                a.set_font_path("".into());
+                a.set_error(format!("Custom font unavailable: {error}").into());
+            }
         }
     } else {
         a.set_font_family(s.font_family.into());
+        a.set_custom_font_family("".into());
+        a.set_font_path("".into());
     }
 }
 pub(crate) fn register_font(bytes: Vec<u8>) -> Result<String, String> {
@@ -126,7 +141,7 @@ pub(crate) fn install(ui: &OrcaWindow, tx: Sender<Request>, timer: Rc<Timer>) {
                         let _ = tx.send(Request::Font(path.to_string_lossy().into()));
                     }
                 });
-            } else {
+            } else if action == "system" || action == "preset" {
                 s.set_font_family(
                     if action == "system" {
                         ""
@@ -135,7 +150,20 @@ pub(crate) fn install(ui: &OrcaWindow, tx: Sender<Request>, timer: Rc<Timer>) {
                     }
                     .into(),
                 );
+                s.invoke_save_settings();
+            } else if action == "custom" {
+                if !s.get_font_path().is_empty() && !s.get_custom_font_family().is_empty() {
+                    s.set_font_family(s.get_custom_font_family());
+                    s.invoke_save_settings();
+                }
+            } else if action == "remove" {
+                let was_custom = !s.get_font_path().is_empty()
+                    && s.get_font_family() == s.get_custom_font_family();
                 s.set_font_path("".into());
+                s.set_custom_font_family("".into());
+                if was_custom {
+                    s.set_font_family("Plus Jakarta Sans".into());
+                }
                 s.invoke_save_settings();
             }
         });

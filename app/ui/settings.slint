@@ -1,7 +1,7 @@
 import { ScrollView, CheckBox, ComboBox, Slider, LineEdit } from "std-widgets.slint";
 import { AppState } from "state.slint";
 import { Icons } from "icons.slint";
-import { TextButton, ToggleSwitch, AccentSlider, ActionFocus } from "controls.slint";
+import { IconButton, TextButton, ToggleSwitch, AccentSlider, ActionFocus } from "controls.slint";
 
 component SettingRow inherits Rectangle {
     in property <string> title;
@@ -65,14 +65,25 @@ export component SettingsView inherits Rectangle {
                         TextButton {width:128px;height:46px;text:"Light";primary:AppState.light-theme;clicked=>{AppState.light-theme=true;AppState.save-settings();}}
                     }
                     Rectangle {y:parent.height - 1px;height:1px;background:AppState.ink.with-alpha(0.1020);}}
-                if AppState.setting-matches("Font preset custom browse file",AppState.search): Rectangle {height:140px;
+                if AppState.setting-matches("Font preset custom browse file selected remove",AppState.search): font-setting:=Rectangle {
+                    private property<bool> compact:self.width<440px;
+                    private property<string> font-selection:AppState.font-path + "|" + AppState.font-family + "|" + AppState.custom-font-family;
+                    changed font-selection=>{font-picker.current-index=AppState.font-path!="" && AppState.font-family==AppState.custom-font-family ? 2 : AppState.font-family=="" ? 1 : 0;}
+                    height:font-setting.compact ? 180px : 140px;
                     Text {x:0px;y:4px;width:parent.width;height:24px;text:"Font";color:AppState.ink;font-weight:600;font-size:14px*AppState.scale;}
                     Text {x:0px;y:28px;width:parent.width;height:36px;text:"Pick a preset or browse for a custom font file";color:AppState.ink;font-size:14px*AppState.scale;wrap:word-wrap;}
-                    HorizontalLayout {x:0px;y:70px;height:36px;alignment:start;spacing:8px;
-                        TextButton {width:142px;text:"Plus Jakarta Sans";primary:AppState.font-family=="Plus Jakarta Sans";clicked => {AppState.font-action("preset");}}
-                        TextButton {width:82px;text:"System";primary:AppState.font-family=="";clicked => {AppState.font-action("system");}}
-                        TextButton {width:110px;text:"Browse file";clicked => {AppState.font-action("browse");}}
+                    HorizontalLayout {x:0px;y:70px;width:parent.width;height:40px;alignment:start;spacing:8px;
+                        font-picker:=ComboBox {
+                            enabled:AppState.focus-layer=="browse";
+                            width:font-setting.compact ? font-setting.width - (AppState.font-path!="" ? 48px : 0px) : min(280px,font-setting.width - (AppState.font-path!="" ? 166px : 118px));
+                            model:AppState.font-path!="" ? ["Plus Jakarta Sans (Default)","System UI",AppState.custom-font-family] : ["Plus Jakarta Sans (Default)","System UI"];
+                            current-index:AppState.font-path!="" && AppState.font-family==AppState.custom-font-family ? 2 : AppState.font-family=="" ? 1 : 0;
+                            selected(value)=>{if self.current-index==0 {AppState.font-action("preset");} else if self.current-index==1 {AppState.font-action("system");} else {AppState.font-action("custom");}}
+                        }
+                        if AppState.font-path!="": IconButton {label:"Remove custom font";width:40px;height:40px;icon-size:16px;icon:Icons.close;outlined:true;clicked=>{AppState.font-action("remove");}}
+                        if !font-setting.compact: TextButton {width:110px;height:40px;text:"Browse file";clicked=>{AppState.font-action("browse");}}
                     }
+                    if font-setting.compact: TextButton {x:0px;y:114px;width:110px;height:40px;text:"Browse file";clicked=>{AppState.font-action("browse");}}
                     Rectangle {y:parent.height - 1px;height:1px;background:AppState.ink.with-alpha(0.1020);}}
                 if AppState.setting-matches("Font Size adjust base percentage",AppState.search): SettingRow {title:"Font Size";description:"Adjust the base font size";
                     HorizontalLayout {spacing:10px;
