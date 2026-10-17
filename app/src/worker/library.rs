@@ -84,6 +84,11 @@ pub(super) fn run(worker: LibraryWorker) {
         1.0
     };
     if audio {
+        if let Err(error) =
+            backend.playback_command(PlaybackCommand::ReplayGain(settings.replaygain))
+        {
+            let _ = events.send(Event::Error(error));
+        }
         if let Err(error) = backend.playback_command(PlaybackCommand::Volume(session.volume)) {
             let _ = events.send(Event::Error(error));
         }
@@ -275,6 +280,10 @@ pub(super) fn run(worker: LibraryWorker) {
                         let _ = events.send(Event::PlaylistChanged(action));
                     }
                     Request::Settings(value) => {
+                        if audio && settings.replaygain != value.replaygain {
+                            backend
+                                .playback_command(PlaybackCommand::ReplayGain(value.replaygain))?;
+                        }
                         if settings.gapless && !value.gapless {
                             cancel_preload(
                                 &mut playback.preloaded,

@@ -35,6 +35,7 @@ pub(crate) fn settings(ui: &OrcaWindow) -> Settings {
         dynamic_accent: s.get_dynamic_accent(),
         blurred_background: s.get_blurred_background(),
         gapless: s.get_gapless(),
+        replaygain: s.get_replaygain(),
         auto_artwork: s.get_auto_artwork(),
         icon_sidebar: s.get_icon_sidebar(),
         seek_style: s.get_seek_style().into(),
@@ -57,6 +58,7 @@ pub(crate) fn apply_settings(ui: &OrcaWindow, s: Settings) {
     a.set_dynamic_accent(s.dynamic_accent);
     a.set_blurred_background(s.blurred_background);
     a.set_gapless(s.gapless);
+    a.set_replaygain(s.replaygain);
     a.set_auto_artwork(s.auto_artwork);
     a.set_icon_sidebar(s.icon_sidebar);
     a.set_seek_style(s.seek_style.into());

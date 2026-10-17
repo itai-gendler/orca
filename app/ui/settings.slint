@@ -151,6 +151,8 @@ export component SettingsView inherits Rectangle {
                     ToggleSwitch {label:"Song quality info";x:178px;y:12px;checked <=> AppState.quality-info;toggled => {AppState.save-settings();}}}
                 if AppState.setting-matches("Gapless playback preload next track smoother transitions",AppState.search): SettingRow {title:"Gapless playback";description:"Preload the next track near the end for smoother transitions";
                     ToggleSwitch {label:"Gapless playback";x:178px;y:12px;checked <=> AppState.gapless;toggled => {AppState.save-settings();}}}
+                if AppState.setting-matches("ReplayGain normalize playback track loudness",AppState.search): SettingRow {title:"ReplayGain";description:"Balance track loudness using ReplayGain tags; tracks without tags play unchanged";
+                    ToggleSwitch {label:"ReplayGain";x:178px;y:12px;checked <=> AppState.replaygain;toggled => {AppState.save-settings();}}}
 
             }
             if (root.tab==4 || AppState.search!="") && AppState.setting-matches("About Orca version report feedback github",AppState.search): VerticalLayout {spacing:24px;alignment:start;

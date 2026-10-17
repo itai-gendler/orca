@@ -78,6 +78,7 @@ pub struct Settings {
     pub dynamic_accent: bool,
     pub blurred_background: bool,
     pub gapless: bool,
+    pub replaygain: bool,
     pub auto_artwork: bool,
     pub icon_sidebar: bool,
     pub seek_style: String,
@@ -100,11 +101,29 @@ impl Default for Settings {
             dynamic_accent: true,
             blurred_background: true,
             gapless: true,
+            replaygain: false,
             auto_artwork: false,
             icon_sidebar: true,
             seek_style: "waveform".into(),
             font_family: "Plus Jakarta Sans".into(),
             font_path: String::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::Settings;
+
+    #[test]
+    fn replaygain_defaults_off_and_survives_settings_round_trip() {
+        let legacy: Settings = serde_json::from_str("{}").unwrap();
+        assert!(!legacy.replaygain);
+
+        let mut enabled = legacy;
+        enabled.replaygain = true;
+        let restored: Settings =
+            serde_json::from_str(&serde_json::to_string(&enabled).unwrap()).unwrap();
+        assert!(restored.replaygain);
     }
 }
