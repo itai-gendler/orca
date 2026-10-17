@@ -119,6 +119,12 @@ Section "Orca"
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
   IfErrors failed
+  ; Register the Start Menu shortcut's AppUserModelID before it can be pinned.
+  nsExec::ExecToLog '"$INSTDIR\Orca.exe" --register-shell'
+  Pop $0
+  ${If} $0 != 0
+    DetailPrint "Orca will complete Windows shell registration on its next launch."
+  ${EndIf}
   Goto done
 failed:
   MessageBox MB_OK|MB_ICONSTOP "Orca could not be installed completely. Check folder permissions and free space, then run setup again." /SD IDOK

@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = run();
     #[cfg(all(windows, not(debug_assertions)))]
     if let Err(error) = &result {
-        if !std::env::args().any(|arg| arg == "--media-smoke") {
+        if !std::env::args().any(|arg| arg == "--media-smoke" || arg == "--register-shell") {
             rfd::MessageDialog::new()
                 .set_title("Orca could not start")
                 .set_description(errors::friendly(&error.to_string()))
@@ -55,11 +55,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = std::env::args().collect();
+    #[cfg(windows)]
+    if args.iter().any(|arg| arg == "--register-shell") {
+        return media_session::identity();
+    }
     #[cfg(windows)]
     if let Err(error) = media_session::identity() {
         eprintln!("Windows app identity: {error}");
     }
-    let args: Vec<String> = std::env::args().collect();
     let media_smoke = args.iter().any(|arg| arg == "--media-smoke");
     let mode = render_mode::requested(&args)?;
     let renderer = render_mode::renderer(&mode, cfg!(feature = "gpu"))?;
