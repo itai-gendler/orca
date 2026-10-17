@@ -6,7 +6,7 @@ mod operations;
 mod scheduling;
 #[cfg(test)]
 pub(crate) mod tests;
-use crate::presentation::theme_accent;
+use crate::presentation::{player_background_tone, theme_accent};
 use crate::{
     artwork, lyric_render, lyrics, models, playback_clock, worker::Service, AppState, LyricLine,
     OrcaTray, OrcaWindow, Song,
@@ -86,6 +86,7 @@ pub(crate) fn install(
             s.get_full_artwork(),
             s.get_blurred_background(),
             s.get_dynamic_accent(),
+            s.get_full_player_background().as_str() == "artwork",
         );
         if visual_settings.replace(Some(visuals)) != Some(visuals) {
             cache.borrow_mut().clear();
@@ -302,7 +303,7 @@ pub(crate) fn install(
             } else {
                 &track.artwork_thumb
             };
-            if s.get_full_player() && s.get_blurred_background() {
+            if s.get_full_player() && s.get_full_player_background().as_str() == "artwork" {
                 let full = cache.borrow_mut().panel_backdrop(
                     background_source,
                     physical.width,
@@ -427,15 +428,26 @@ pub(crate) fn install(
             }
         }
         let track = now.borrow();
-        if s.get_dynamic_accent() && !s.get_window_hidden() {
+        if (s.get_dynamic_accent()
+            || (s.get_full_player() && s.get_full_player_background().as_str() == "color"))
+            && !s.get_window_hidden()
+        {
             cache.borrow_mut().get(&track.artwork_thumb, 48, false);
         }
-        let rgb = if s.get_dynamic_accent() {
+        let cover_rgb = {
             let cache = cache.borrow();
             cache
                 .accent(&track.artwork_thumb)
                 .or_else(|| cache.accent(&track.artwork))
-                .unwrap_or([245, 245, 245])
+        };
+        let background_rgb = player_background_tone(cover_rgb.unwrap_or([96, 96, 96]));
+        s.set_background_accent(slint::Color::from_rgb_u8(
+            background_rgb[0],
+            background_rgb[1],
+            background_rgb[2],
+        ));
+        let rgb = if s.get_dynamic_accent() {
+            cover_rgb.unwrap_or([245, 245, 245])
         } else {
             [245, 245, 245]
         };

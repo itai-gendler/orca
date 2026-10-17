@@ -178,7 +178,13 @@ export component FullPlayer inherits Rectangle {
     private property<color> ink:AppState.full-player-dark ? white : AppState.ink;
     private property<bool> compact-lyrics:AppState.lyrics-open && root.width<1100px;
     background:AppState.full-player-dark ? #090a0c : AppState.base;
-    if AppState.blurred-background: AmbientBackground {source:AppState.full-backdrop;strength:1;subtle:false;animate:false;}
+    if AppState.full-player-background=="artwork": AmbientBackground {source:AppState.full-backdrop;strength:0.78;subtle:false;animate:false;}
+    if AppState.full-player-background=="color": Rectangle {
+        private property<color> tone:AppState.background-accent;
+        animate tone {duration:320ms;easing:ease-in-out;}
+        background:self.tone.with-alpha(0.82);
+        Rectangle {background:@linear-gradient(180deg,#090a0c22,transparent 45%,#090a0c44);}
+    }
     // Consume all empty-space input; the library is separately disabled.
     TouchArea {scroll-event(event) => {AppState.player-swipe(event.delta-x/1px,event.delta-y/1px);return accept;}}
     IconButton {layer:"full";label:"Back";dark:AppState.full-player-dark;x:56px;y:52px;icon:Icons.back;round:true;outlined:true;clicked => {AppState.full-player=false;}}

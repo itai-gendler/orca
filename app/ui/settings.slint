@@ -95,10 +95,10 @@ export component SettingsView inherits Rectangle {
                     Text {x:0px;y:0px;height:24px;text:"Visuals";color:AppState.ink;font-size:14px*AppState.scale;font-weight:600;}
                     Text {x:0px;y:26px;height:28px;width:parent.width;text:"Choose a preset, then adjust individual options";color:AppState.ink;font-size:14px*AppState.scale;}
                     HorizontalLayout {y:64px;height:40px;alignment:start;spacing:8px;
-                        TextButton {text:"Default";primary:AppState.browse-artwork && AppState.compact-artwork && AppState.full-artwork && AppState.blurred-background && AppState.dynamic-accent;
-                            clicked=>{AppState.browse-artwork=true;AppState.compact-artwork=true;AppState.full-artwork=true;AppState.blurred-background=true;AppState.dynamic-accent=true;AppState.save-settings();}}
-                        TextButton {text:"Minimal";primary:!AppState.browse-artwork && !AppState.compact-artwork && !AppState.full-artwork && !AppState.blurred-background && !AppState.dynamic-accent;
-                            clicked=>{AppState.browse-artwork=false;AppState.compact-artwork=false;AppState.full-artwork=false;AppState.blurred-background=false;AppState.dynamic-accent=false;AppState.grid=false;AppState.save-settings();}}
+                        TextButton {text:"Default";primary:AppState.browse-artwork && AppState.compact-artwork && AppState.full-artwork && AppState.blurred-background && AppState.full-player-background=="artwork" && AppState.dynamic-accent;
+                            clicked=>{AppState.browse-artwork=true;AppState.compact-artwork=true;AppState.full-artwork=true;AppState.blurred-background=true;AppState.full-player-background="artwork";AppState.dynamic-accent=true;AppState.save-settings();}}
+                        TextButton {text:"Minimal";primary:!AppState.browse-artwork && !AppState.compact-artwork && !AppState.full-artwork && !AppState.blurred-background && AppState.full-player-background=="off" && !AppState.dynamic-accent;
+                            clicked=>{AppState.browse-artwork=false;AppState.compact-artwork=false;AppState.full-artwork=false;AppState.blurred-background=false;AppState.full-player-background="off";AppState.dynamic-accent=false;AppState.grid=false;AppState.save-settings();}}
                     }
                 }
                 if AppState.setting-matches("Visuals Browse artwork",AppState.search): SettingRow {title:"Browse artwork";description:"Show covers across the library, artists, albums, genres, playlists, and queue";
@@ -109,8 +109,11 @@ export component SettingsView inherits Rectangle {
                     ToggleSwitch {label:"Full player artwork";x:178px;y:12px;checked <=> AppState.full-artwork;toggled=>{AppState.save-settings();}}}
                 if AppState.setting-matches("Dynamic cover accent tint active controls current art",AppState.search): SettingRow {title:"Dynamic cover accent";description:"Tint active controls from the current cover art";
                     ToggleSwitch {label:"Dynamic cover accent";x:178px;y:12px;checked <=> AppState.dynamic-accent;toggled => {AppState.save-settings();}}}
-                if AppState.setting-matches("Visuals Cover-based backgrounds cover art ambience library full player",AppState.search): SettingRow {title:"Cover-based backgrounds";description:"Show a subtle cover-colored gradient behind browsing pages and the full player";
-                    ToggleSwitch {label:"Cover-based backgrounds";x:178px;y:12px;checked <=> AppState.blurred-background;toggled => {AppState.save-settings();}}}
+                if AppState.setting-matches("Visuals Browse backgrounds cover art ambience library",AppState.search): SettingRow {title:"Browse backgrounds";description:"Show subtle cover colors behind library pages";
+                    ToggleSwitch {label:"Browse backgrounds";x:178px;y:12px;checked <=> AppState.blurred-background;toggled => {AppState.save-settings();}}}
+                if AppState.setting-matches("Visuals Full player background artwork color off",AppState.search): SettingRow {title:"Full player background";description:"Choose artwork, a cover-color gradient, or no background";
+                    ComboBox {enabled:AppState.focus-layer=="browse";model:["Artwork","Color","Off"];current-index:AppState.full-player-background=="color" ? 1 : AppState.full-player-background=="off" ? 2 : 0;
+                        selected(value)=>{AppState.full-player-background=self.current-index==1 ? "color" : self.current-index==2 ? "off" : "artwork";AppState.save-settings();}}}
             }
             if root.tab==1 || AppState.search!="": VerticalLayout {spacing:24px;alignment:start;
                 if AppState.setting-matches("Sidebar mode text labels icons",AppState.search): SettingRow {title:"Sidebar mode";description:"Choose whether the sidebar should show text labels or just icons";

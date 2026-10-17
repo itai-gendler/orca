@@ -36,6 +36,32 @@ pub(crate) fn theme_accent(mut rgb: [u8; 3], light: bool) -> [u8; 3] {
     }
     rgb
 }
+
+pub(crate) fn player_background_tone(rgb: [u8; 3]) -> [u8; 3] {
+    let maximum = *rgb.iter().max().unwrap() as f32;
+    let minimum = *rgb.iter().min().unwrap() as f32;
+    if maximum == 0.0 {
+        return [64; 3];
+    }
+
+    // Color mode needs a dark, recognizable version of the cover color. Pale
+    // covers otherwise become a flat gray wash after blending over black.
+    let value = (maximum * 0.52).clamp(72.0, 112.0);
+    let saturation = if maximum - minimum < 8.0 {
+        0.0
+    } else {
+        ((maximum - minimum) / maximum).clamp(0.46, 0.88)
+    };
+    let original_saturation = (maximum - minimum) / maximum;
+    rgb.map(|channel| {
+        let chroma_position = if original_saturation > 0.0 {
+            (maximum - channel as f32) / (maximum - minimum)
+        } else {
+            0.0
+        };
+        (value * (1.0 - saturation * chroma_position)).round() as u8
+    })
+}
 pub(crate) fn reset_empty_player(ui: &OrcaWindow) {
     let s = ui.global::<AppState>();
     s.set_now(Song {

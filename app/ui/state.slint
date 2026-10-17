@@ -23,8 +23,9 @@ export global AppState {
     out property<string> focus-layer:modal-open ? "dialog" : menu-open || collection-menu-open || playlist-picker-open ? "menu" : queue-open ? "queue" : full-player ? "full" : "browse";
     out property<bool> modal-open:metadata-open || collection-dialog || playlist-dialog;
     in-out property<color> player-accent:white;
+    in-out property<color> background-accent:#626262;
     in-out property<bool> light-theme:false;
-    out property<bool> full-player-dark:!light-theme || blurred-background;
+    out property<bool> full-player-dark:!light-theme || full-player-background!="off";
     out property<color> ink:light-theme ? #242321 : white;
     out property<color> inverse-ink:light-theme ? #FCFBF7 : black;
     out property<color> base:light-theme ? #FCFBF7 : #090a0c;
@@ -106,6 +107,7 @@ export global AppState {
     in-out property <bool> replaygain: false;
     in-out property <bool> dynamic-accent: true;
     in-out property <bool> blurred-background: true;
+    in-out property <string> full-player-background: "artwork";
     in-out property <bool> gapless: true;
     in-out property <bool> auto-artwork: false;
     in-out property <bool> icon-sidebar: true;

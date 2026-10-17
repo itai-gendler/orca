@@ -34,6 +34,7 @@ pub(crate) fn settings(ui: &OrcaWindow) -> Settings {
         show_liked_songs: s.get_show_liked_songs(),
         dynamic_accent: s.get_dynamic_accent(),
         blurred_background: s.get_blurred_background(),
+        full_player_background: s.get_full_player_background().into(),
         gapless: s.get_gapless(),
         replaygain: s.get_replaygain(),
         auto_artwork: s.get_auto_artwork(),
@@ -57,6 +58,12 @@ pub(crate) fn apply_settings(ui: &OrcaWindow, s: Settings) {
     a.set_show_liked_songs(s.show_liked_songs);
     a.set_dynamic_accent(s.dynamic_accent);
     a.set_blurred_background(s.blurred_background);
+    let background = match s.full_player_background.as_str() {
+        "artwork" | "color" | "off" => s.full_player_background.as_str(),
+        _ if s.blurred_background => "artwork",
+        _ => "off",
+    };
+    a.set_full_player_background(background.into());
     a.set_gapless(s.gapless);
     a.set_replaygain(s.replaygain);
     a.set_auto_artwork(s.auto_artwork);

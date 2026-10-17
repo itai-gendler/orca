@@ -9,6 +9,7 @@ pub(super) fn verify(case: &mut UiCase) {
     state.set_view("songs".into());
     state.set_light_theme(true);
     state.set_blurred_background(false);
+    state.set_full_player_background("off".into());
     state.set_full_player(false);
     state.set_grid(false);
     window.draw_if_needed(|renderer| {
@@ -109,6 +110,7 @@ pub(super) fn verify(case: &mut UiCase) {
     assert_eq!(state.get_view(), "albums");
     state.set_full_player(true);
     state.set_blurred_background(true);
+    state.set_full_player_background("artwork".into());
     state.set_lyrics_open(true);
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);

@@ -53,6 +53,29 @@ pub(super) fn verify(case: &mut UiCase) {
             "backdrop must fill the full window at high DPI"
         );
     }
+    state.set_full_player_background("color".into());
+    state.set_background_accent(slint::Color::from_rgb_u8(0, 60, 255));
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut hidpi, 1600);
+    });
+    let colored = hidpi[500 * 1600 + 20];
+    assert!(
+        i16::from(colored.b) > i16::from(colored.r) + 20,
+        "color mode must use the cover accent"
+    );
+    if std::env::var_os("ORCA_TEST_SCREENSHOTS").is_some() {
+        let bytes: Vec<u8> = hidpi.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+        save_screenshot(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../target/slint/test-artifacts/ui/color-player-smoke.png"),
+            &bytes,
+            1600,
+            1025,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+    }
+    state.set_full_player_background("artwork".into());
     let green: Vec<_> = hidpi
         .iter()
         .enumerate()

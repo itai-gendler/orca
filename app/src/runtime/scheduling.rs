@@ -169,7 +169,7 @@ pub(super) fn tick(
             physical.width,
             physical.height,
             s.get_full_artwork(),
-            s.get_blurred_background(),
+            s.get_full_player_background().as_str() == "artwork",
         );
         if !update_images && schedule.neighbor_warm.replace(Some(signature)) != Some(signature) {
             let mut cache = cache.borrow_mut();
@@ -192,7 +192,7 @@ pub(super) fn tick(
                         true,
                     );
                 }
-                if s.get_blurred_background() {
+                if s.get_full_player_background().as_str() == "artwork" {
                     cache.prefetch_backdrop(small, physical.width, physical.height, 0);
                 }
             }
