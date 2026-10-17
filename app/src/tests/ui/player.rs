@@ -195,6 +195,13 @@ pub(super) fn verify(case: &mut UiCase) {
     });
     screenshot(pixels, "inline-lyrics-docked");
     assert!(state.get_lyrics_width() > 200.0);
+    click(window, 1202.0, 772.0);
+    assert!(state.get_queue_open());
+    assert!(!state.get_lyrics_open());
+    click(window, 1236.0, 38.0);
+    assert!(!state.get_queue_open());
+    click(window, 1152.0, 772.0);
+    assert!(state.get_lyrics_open());
     window.dispatch_event(WindowEvent::PointerMoved {
         position: slint::LogicalPosition::new(1244.0, 764.0),
     });
@@ -205,7 +212,7 @@ pub(super) fn verify(case: &mut UiCase) {
         renderer.render(pixels, 1280);
     });
     screenshot(pixels, "volume-over-lyrics");
-    click(window, 1232.0, 48.0);
+    click(window, 1232.0, 28.0);
     assert!(!state.get_lyrics_open());
     window.set_size(slint::PhysicalSize::new(560, 820));
     let mut narrow_pixels = vec![slint::Rgb8Pixel::default(); 560 * 820];
@@ -232,7 +239,7 @@ pub(super) fn verify(case: &mut UiCase) {
     assert!(!state.get_playlist_picker_open());
     click(window, 459.0, 698.0);
     assert!(state.get_lyrics_open());
-    click(window, 512.0, 48.0);
+    click(window, 512.0, 28.0);
     assert!(!state.get_lyrics_open());
     window.set_size(slint::PhysicalSize::new(1280, 820));
     let mut playing = state.get_now();

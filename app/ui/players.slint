@@ -41,7 +41,7 @@ export component PlayerBar inherits Rectangle {
             if AppState.show-liked-songs: IconButton {label:AppState.liked ? "Unlike song" : "Like song";icon:AppState.liked ? Icons.heartFilled : Icons.heart;enabled:AppState.now.id>0;active:AppState.liked;active-icon-only:true;clicked=>{AppState.toggle-like();}}
             IconButton {label:"Add to playlist";icon:Icons.playlistAdd;enabled:AppState.now.id>0;active:AppState.playlist-picker-open;clicked => {if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
             IconButton {label:"Lyrics";icon:Icons.lyrics;enabled:AppState.now.path!="";active:AppState.lyrics-open;clicked => {AppState.lyrics-open=!AppState.lyrics-open;AppState.queue-open=false;AppState.playlist-picker-open=false;}}
-            IconButton {label:"Queue";icon:Icons.queue;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;AppState.command("queue-preview",0);}}
+            IconButton {label:"Queue";icon:Icons.queue;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;if AppState.queue-open {AppState.lyrics-open=false;AppState.playlist-picker-open=false;AppState.command("queue-preview",0);}}}
             VolumeControl {y:4px;}
         }}
     }
@@ -56,7 +56,7 @@ export component PlayerBar inherits Rectangle {
             if AppState.show-liked-songs: IconButton {label:AppState.liked ? "Unlike song" : "Like song";width:28px;height:28px;icon-size:18px;icon:AppState.liked ? Icons.heartFilled : Icons.heart;enabled:AppState.now.id>0;active:AppState.liked;active-icon-only:true;clicked=>{AppState.toggle-like();}}
             IconButton {label:"Add to playlist";width:28px;height:28px;icon-size:18px;icon:Icons.playlistAdd;enabled:AppState.now.id>0;active:AppState.playlist-picker-open;clicked=>{if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
             IconButton {label:"Lyrics";width:28px;height:28px;icon-size:18px;icon:Icons.lyrics;enabled:AppState.now.path!="";active:AppState.lyrics-open;clicked=>{AppState.lyrics-open=!AppState.lyrics-open;AppState.queue-open=false;AppState.playlist-picker-open=false;}}
-            IconButton {label:"Queue";width:28px;height:28px;icon:Icons.queue;active:AppState.queue-open;clicked=>{AppState.queue-open=!AppState.queue-open;AppState.command("queue-preview",0);}}
+            IconButton {label:"Queue";width:28px;height:28px;icon:Icons.queue;active:AppState.queue-open;clicked=>{AppState.queue-open=!AppState.queue-open;if AppState.queue-open {AppState.lyrics-open=false;AppState.playlist-picker-open=false;AppState.command("queue-preview",0);}}}
             VolumeControl {width:28px;height:28px;}
         }
         SeekBar {height:24px;}
@@ -128,14 +128,15 @@ component LyricsViewport inherits Rectangle {
 }
 
 export component InlineLyricsPanel inherits Rectangle {
-    in property<length> available-width;
-    in property<length> available-height;
     in property<length> panel-width;
-    width:min(root.panel-width,root.available-width - 32px);
-    height:root.available-height;
-    background:AppState.base;border-radius:8px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);clip:true;
+    in property<length> panel-height;
+    in property<bool> overlay:false;
+    width:root.panel-width;
+    height:root.panel-height;
+    background:root.overlay ? AppState.base : transparent;
+    Rectangle {x:0px;width:1px;height:parent.height;background:AppState.ink.with-alpha(0.12);}
     Text {x:20px;y:16px;width:parent.width - 76px;height:32px;text:"LYRICS";color:AppState.ink.with-alpha(0.65);font-size:12px;font-weight:700;vertical-alignment:center;}
-    IconButton {label:"Close lyrics";x:parent.width - 48px;y:12px;width:32px;height:32px;icon:Icons.close;clicked=>{AppState.lyrics-open=false;}}
+    IconButton {label:"Close lyrics";x:parent.width - 56px;y:12px;width:32px;height:32px;icon:Icons.close;clicked=>{AppState.lyrics-open=false;}}
     LyricsViewport {x:20px;y:60px;width:parent.width - 40px;height:parent.height - 76px;font-size:clamp(root.width*0.065,23px,30px)*AppState.scale;}
 }
 
@@ -188,8 +189,8 @@ export component FullPlayer inherits Rectangle {
     // Consume all empty-space input; the library is separately disabled.
     TouchArea {scroll-event(event) => {AppState.player-swipe(event.delta-x/1px,event.delta-y/1px);return accept;}}
     IconButton {layer:"full";label:"Back";dark:AppState.full-player-dark;x:56px;y:52px;icon:Icons.back;round:true;outlined:true;clicked => {AppState.full-player=false;}}
-    IconButton {layer:"full";label:"Lyrics";dark:AppState.full-player-dark;x:parent.width - 136px;y:52px;icon:Icons.lyrics;round:true;active:AppState.lyrics-open;clicked => {AppState.lyrics-open=!AppState.lyrics-open;}}
-    IconButton {layer:"full";label:"Queue";dark:AppState.full-player-dark;x:parent.width - 88px;y:52px;icon:Icons.queue;round:true;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;AppState.command("queue-preview",0);}}
+    IconButton {layer:"full";label:"Lyrics";dark:AppState.full-player-dark;x:parent.width - 136px;y:52px;icon:Icons.lyrics;round:true;active:AppState.lyrics-open;clicked => {AppState.lyrics-open=!AppState.lyrics-open;if AppState.lyrics-open {AppState.queue-open=false;}}}
+    IconButton {layer:"full";label:"Queue";dark:AppState.full-player-dark;x:parent.width - 88px;y:52px;icon:Icons.queue;round:true;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;if AppState.queue-open {AppState.lyrics-open=false;AppState.command("queue-preview",0);}}}
     content := Rectangle {
         visible:!root.compact-lyrics;
         x:AppState.lyrics-open ? clamp(root.width*0.09,64px,176px) : (root.width - self.width)/2;
@@ -265,20 +266,25 @@ export component QueuePanel inherits Rectangle {
     private property<color> ink:AppState.full-player && AppState.full-player-dark ? white : AppState.ink;
     in property <length> available-width:1280px;
     in property <length> available-height:820px;
-    width:min(384px,root.available-width - 32px);height:min(672px,root.available-height - 32px,80px+max(1,AppState.queue.length)*(AppState.browse-artwork ? 67.2px : 56px));
-    border-radius:21.6px;clip:true;background:AppState.full-player && AppState.full-player-dark ? #000 : AppState.queue-background;border-width:1px;border-color:root.ink.with-alpha(0.1020);
+    in property<bool> docked:false;
+    in property<bool> overlay:false;
+    in property<length> dock-width:384px;
+    in property<length> dock-height:672px;
+    width:root.docked ? root.dock-width : min(384px,root.available-width - 32px);height:root.docked ? root.dock-height : min(672px,root.available-height - 32px,80px+max(1,AppState.queue.length)*(AppState.browse-artwork ? 67.2px : 56px));
+    border-radius:root.docked ? 0px : 21.6px;clip:true;background:root.docked ? root.overlay ? AppState.base : transparent : AppState.full-player && AppState.full-player-dark ? #000 : AppState.queue-background;border-width:root.docked ? 0px : 1px;border-color:root.ink.with-alpha(0.1020);
+    if root.docked: Rectangle {x:0px;width:1px;height:parent.height;background:root.ink.with-alpha(0.12);}
     private property<string> dragged-path;
     private property<float> drag-origin;
     private property<bool> drag-moved;
 
     Text {x:20px;y:18px;text:"Queue";color:root.ink;font-size:19.52px;font-weight:900;}
     Text {x:20px;y:44px;text:AppState.shuffle ? "Shuffle is on" : max(0,AppState.queue.length - 1)+" up next";color:root.ink.with-alpha(AppState.light-theme && !(AppState.full-player && AppState.full-player-dark) ? max(0.65,0.4510) : 0.4510);font-size:12px;}
-    TextButton {layer:"queue";dark:AppState.full-player && AppState.full-player-dark;x:parent.width - 128px;y:20px;width:64px;height:36px;text:"Clear";clicked => {AppState.queue-action("clear","","");}}
-    IconButton {layer:"queue";label:"Close";dark:AppState.full-player && AppState.full-player-dark;x:parent.width - 56px;y:20px;width:36px;height:36px;icon:Icons.close;round:true;outlined:true;clicked => {AppState.queue-open=false;}}
+    TextButton {layer:root.docked ? "browse" : "queue";dark:AppState.full-player && AppState.full-player-dark;x:parent.width - 128px;y:20px;width:64px;height:36px;text:"Clear";clicked => {AppState.queue-action("clear","","");}}
+    IconButton {layer:root.docked ? "browse" : "queue";label:"Close";dark:AppState.full-player && AppState.full-player-dark;x:parent.width - 56px;y:20px;width:36px;height:36px;icon:Icons.close;round:true;outlined:!root.docked;clicked => {AppState.queue-open=false;}}
     queue-list:=ListView {x:12.8px;y:80px;width:parent.width - 25.6px;height:parent.height - 92.8px;horizontal-scrollbar-policy:always-off;
         for song[index] in AppState.queue: Rectangle {
             accessible-role:button;accessible-label:song.title+", "+song.artist;
-            row-focus:=ActionFocus {layer:"queue";activated=>{AppState.queue-action("play",song.path,"");}
+            row-focus:=ActionFocus {layer:root.docked ? "browse" : "queue";activated=>{AppState.queue-action("play",song.path,"");}
                 key-pressed(event)=>{
                     if event.text==Key.Delete {AppState.queue-action("remove",song.path,"");return accept;}
                     if event.modifiers.alt && event.text==Key.UpArrow && index>0 {AppState.queue-action("move",song.path,AppState.queue[index - 1].path);return accept;}

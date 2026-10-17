@@ -83,8 +83,11 @@ pub(super) fn verify(case: &mut UiCase) {
         assert!(state.get_full_player());
         assert!(state.invoke_keyboard("F".into(), false));
         assert!(!state.get_full_player());
+        state.set_lyrics_open(true);
+        state.set_playlist_picker_open(true);
         assert!(state.invoke_keyboard("q".into(), false));
         assert!(state.get_queue_open());
+        assert!(!state.get_lyrics_open() && !state.get_playlist_picker_open());
         assert!(
             matches!(
                 key_rx.try_recv().unwrap(),
