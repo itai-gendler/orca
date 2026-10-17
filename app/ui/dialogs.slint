@@ -119,7 +119,8 @@ export component MetadataEditor inherits Rectangle {
 
 export component CollectionMenu inherits Rectangle {
     init=>{first.take-focus();}
-    width:244px;height:AppState.collection-kind=="artists" || AppState.collection-kind=="albums" ? 210px : 174px;background:AppState.panel;border-color:AppState.ink.with-alpha(0.1020);border-width:1px;border-radius:6px;clip:true;
+    private property<bool> playlist-detail:AppState.collection-kind=="playlists" && AppState.detail-key==AppState.collection-group.key;
+    width:244px;height:root.playlist-detail ? 246px : AppState.collection-kind=="artists" || AppState.collection-kind=="albums" ? 210px : 174px;background:AppState.panel;border-color:AppState.ink.with-alpha(0.1020);border-width:1px;border-radius:6px;clip:true;
     VerticalLayout {padding-top:10px;padding-bottom:6px;spacing:0;
         Rectangle {height:48px;
             Text {x:12px;y:0px;width:parent.width - 24px;height:22px;text:AppState.collection-group.title;color:AppState.ink;font-size:13px;font-weight:700;overflow:elide;}
@@ -129,6 +130,8 @@ export component CollectionMenu inherits Rectangle {
         MenuItem {text:"Change cover";triggered=>{AppState.collection-action("cover");}}
         MenuItem {text:"Remove cover";triggered=>{AppState.collection-action("remove-cover");}}
         if AppState.collection-kind=="artists" || AppState.collection-kind=="albums": MenuItem {text:"Fetch cover online";triggered=>{AppState.collection-action("fetch-cover");}}
+        if root.playlist-detail: MenuItem {text:"Export playlist";triggered=>{AppState.collection-menu-open=false;AppState.playlist-action("export",AppState.collection-group.key);}}
+        if root.playlist-detail: MenuItem {text:"Delete playlist";triggered=>{AppState.collection-menu-open=false;AppState.playlist-action("delete",AppState.collection-group.key);}}
     }
 }
 export component CollectionDialog inherits Rectangle {

@@ -253,7 +253,8 @@ export component CatalogDetails inherits Rectangle {
         x:0px;y:0px;height:root.width<600px ? 240px : AppState.view=="albums" ? 280px : 256px;border-radius:6px;clip:true;background:AppState.ink.with-alpha(0.0235);
         Image {x:0px;y:0px;width:parent.width;height:parent.height;source:AppState.detail-backdrop;image-fit:cover;opacity:0.2;}
         IconButton {label:"Back";x:20px;y:20px;icon:Icons.back;round:true;outlined:true;clicked=>{AppState.go-back();}}
-        SearchField {x:max(84px,parent.width - 596px);y:20px;width:min(576px,parent.width - 104px);height:40px;text<=>AppState.search;placeholder-text:"Search songs in "+AppState.detail-title+"…";edited=>{AppState.browse();}}
+        SearchField {x:max(84px,parent.width - (AppState.view=="playlists" && AppState.detail-key!="liked" ? 644px : 596px));y:20px;width:min(576px,parent.width - (AppState.view=="playlists" && AppState.detail-key!="liked" ? 152px : 104px));height:40px;text<=>AppState.search;placeholder-text:"Search songs in "+AppState.detail-title+"…";edited=>{AppState.browse();}}
+        if AppState.view=="playlists" && AppState.detail-key!="liked": IconButton {label:"More playlist options";x:parent.width - 64px;y:20px;icon:Icons.more;outlined:true;clicked=>{AppState.collection-menu({key:AppState.detail-key,secondary:AppState.detail-secondary,title:AppState.detail-title,subtitle:AppState.detail-summary,count:0,cover:AppState.detail-cover,cover-missing:AppState.detail-cover-missing},(self.absolute-position.x)/1px,(self.absolute-position.y+self.height)/1px);}}
         if AppState.browse-artwork: detail-cover-frame:=Rectangle {x:20px;y:parent.height - self.height - 24px;width:root.width<600px ? 96px : 148px;height:self.width;border-radius:AppState.view=="artists" ? self.width/2 : 6px;clip:true;
             if AppState.view=="playlists" && AppState.detail-key=="liked": LikedCover {artwork:AppState.detail-cover;missing:AppState.detail-cover-missing;}
             if AppState.view!="playlists" || AppState.detail-key!="liked": CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:AppState.detail-cover;missing:AppState.detail-cover-missing;image-fit:cover;}
@@ -275,8 +276,6 @@ export component CatalogDetails inherits Rectangle {
                     IconButton {label:"Add to queue";icon:Icons.addQueue;outlined:true;round:true;width:44px;height:44px;clicked=>{AppState.queue-open=true;AppState.command("queue-context",0);}}
                     if AppState.view!="playlists" || AppState.detail-key!="liked": IconButton {label:"Edit details";icon:Icons.edit;outlined:true;round:true;clicked=>{AppState.collection-action("name");}}
                     if !AppState.browse-artwork: IconButton {label:"Change cover";icon:Icons.folderPlus;outlined:true;round:true;clicked=>{AppState.collection-action("cover");}}
-                    if AppState.view=="playlists" && AppState.detail-key!="liked": IconButton {label:"Export playlist";icon:Icons.export;outlined:true;round:true;clicked=>{AppState.playlist-action("export",AppState.detail-key);}}
-                    if AppState.view=="playlists" && AppState.detail-key!="liked": IconButton {label:"Remove";icon:Icons.trash;outlined:true;round:true;clicked=>{AppState.playlist-action("delete",AppState.detail-key);}}
                 }
             }
         }
