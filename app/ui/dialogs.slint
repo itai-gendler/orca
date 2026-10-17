@@ -55,18 +55,35 @@ component Field inherits VerticalLayout {
     Text {text:root.label;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.6275) : 0.6275);font-size:12px;}
     input:=LineEdit {accessible-label:root.label;changed has-focus=>{AppState.text-input-focused=self.has-focus;}height:36px;text<=>root.value;}
 }
+component EditableCover inherits Rectangle {
+    in property<image> artwork;
+    in property<bool> missing;
+    in property<bool> round;
+    in property<bool> enabled:true;
+    in property<bool> can-remove:true;
+    callback replace;
+    callback remove;
+    border-radius:root.round ? root.width/2 : 6px;
+    clip:true;
+    CoverImage {width:parent.width;height:parent.height;artwork:root.artwork;missing:root.missing;image-fit:cover;}
+    hover:=TouchArea {}
+    private property<bool> editing:hover.has-hover || change.has-hover || discard.has-hover || AppState.keyboard-navigation;
+    Rectangle {visible:root.editing;background:#00000066;}
+    HorizontalLayout {x:parent.width - 76px;y:parent.height - 40px;width:72px;height:32px;spacing:8px;
+        change:=IconButton {dialog-control:true;label:"Replace cover";visible:root.editing;enabled:root.enabled;width:32px;height:32px;icon-size:16px;round:true;icon:Icons.edit;primary:true;clicked=>{root.replace();}}
+        discard:=IconButton {dialog-control:true;label:"Remove cover";visible:root.editing;enabled:root.enabled && root.can-remove;width:32px;height:32px;icon-size:16px;round:true;icon:Icons.trash;dark:true;background:#000000b8;clicked=>{root.remove();}}
+    }
+}
 export component MetadataEditor inherits Rectangle {
     init=>{title-field.focus-input();}
     background:AppState.panel;border-radius:6px;border-color:AppState.ink.with-alpha(0.1255);border-width:1px;
     HorizontalLayout {spacing:0;
         if root.width>=760px: Rectangle {width:240px;background:AppState.ink.with-alpha(0.0235);
             VerticalLayout {padding:20px;spacing:12px;alignment:start;
-                Rectangle {height:200px;border-radius:6px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:AppState.editor-cover;missing:AppState.editor-cover-missing;image-fit:cover;}}
+                EditableCover {height:200px;artwork:AppState.editor-cover;missing:AppState.editor-cover-missing;enabled:!AppState.editor-busy;can-remove:!AppState.editor-cover-missing;replace=>{AppState.metadata-action("pick-cover","");}remove=>{AppState.metadata-action("remove-cover","");}}
                 Text {text:AppState.draft.title;color:AppState.ink;font-size:18px;font-weight:700;overflow:elide;}
                 Text {text:AppState.draft.artist;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.5020) : 0.5020);font-size:14px;overflow:elide;}
-                TextButton {dialog-control:true;text:"Replace cover";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("pick-cover","");}}
-                TextButton {dialog-control:true;text:"Remove cover";enabled:!AppState.editor-busy && !AppState.editor-cover-missing;clicked=>{AppState.metadata-action("remove-cover","");}}
-                TextButton {dialog-control:true;text:"Fetch artwork online";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("fetch-cover","");}}
+                TextButton {dialog-control:true;text:"Find cover online";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("fetch-cover","");}}
                 Text {text:AppState.editor-status;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.5647) : 0.5647);font-size:12px;wrap:word-wrap;}
             }
         }
@@ -75,12 +92,8 @@ export component MetadataEditor inherits Rectangle {
             VerticalLayout {padding:20px;spacing:16px;alignment:start;
                 HorizontalLayout {Text {text:"Edit metadata";color:AppState.ink;font-size:24px;font-weight:700;}IconButton {label:"Close";dialog-control:true;icon:Icons.close;clicked=>{AppState.metadata-open=false;}}}
                 if root.width<760px: VerticalLayout {spacing:8px;alignment:start;
-                    Rectangle {width:96px;height:96px;CoverImage {width:parent.width;height:parent.height;artwork:AppState.editor-cover;missing:AppState.editor-cover-missing;}}
-                    HorizontalLayout {spacing:8px;alignment:start;
-                        TextButton {dialog-control:true;text:"Replace cover";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("pick-cover","");}}
-                        TextButton {dialog-control:true;text:"Remove cover";enabled:!AppState.editor-busy && !AppState.editor-cover-missing;clicked=>{AppState.metadata-action("remove-cover","");}}
-                    }
-                    TextButton {dialog-control:true;text:"Fetch artwork online";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("fetch-cover","");}}
+                    EditableCover {width:96px;height:96px;artwork:AppState.editor-cover;missing:AppState.editor-cover-missing;enabled:!AppState.editor-busy;can-remove:!AppState.editor-cover-missing;replace=>{AppState.metadata-action("pick-cover","");}remove=>{AppState.metadata-action("remove-cover","");}}
+                    TextButton {dialog-control:true;text:"Find cover online";enabled:!AppState.editor-busy;clicked=>{AppState.metadata-action("fetch-cover","");}}
                     Text {text:AppState.editor-status;color:AppState.ink.with-alpha(0.65);font-size:12px;wrap:word-wrap;}
                 }
                 Text {text:"Writes directly to the audio file.";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.4392) : 0.4392);font-size:12px;}
@@ -125,12 +138,8 @@ export component CollectionDialog inherits Rectangle {
     ScrollView {x:0px;y:0px;width:parent.width;height:parent.height;horizontal-scrollbar-policy:always-off;
     VerticalLayout {padding:20px;spacing:12px;alignment:start;
         Text {text:"Edit "+(AppState.collection-kind=="artists" ? "artist" : AppState.collection-kind=="albums" ? "album" : AppState.collection-kind=="genres" ? "genre" : AppState.collection-kind=="folders" ? "folder" : "playlist");color:AppState.ink;font-size:22px;font-weight:700;vertical-stretch:0;}
-        Rectangle {width:128px;height:128px;border-radius:AppState.collection-kind=="artists" ? 64px : 6px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:AppState.collection-cover;missing:AppState.collection-cover-missing;}}
-        HorizontalLayout {spacing:8px;alignment:start;
-            TextButton {dialog-control:true;enabled:!AppState.collection-saving && !AppState.collection-fetching;text:"Change cover";clicked=>{AppState.collection-action("cover");}}
-            TextButton {dialog-control:true;enabled:!AppState.collection-saving && !AppState.collection-fetching;text:"Remove cover";clicked=>{AppState.collection-action("remove-cover");}}
-        }
-        if AppState.collection-kind=="artists" || AppState.collection-kind=="albums": TextButton {dialog-control:true;enabled:!AppState.collection-saving && !AppState.collection-fetching;text:AppState.collection-fetching ? "Searching..." : "Fetch cover online";clicked=>{AppState.collection-action("fetch-cover");}}
+        EditableCover {width:128px;height:128px;round:AppState.collection-kind=="artists";artwork:AppState.collection-cover;missing:AppState.collection-cover-missing;enabled:!AppState.collection-saving && !AppState.collection-fetching;replace=>{AppState.collection-action("cover");}remove=>{AppState.collection-action("remove-cover");}}
+        if AppState.collection-kind=="artists" || AppState.collection-kind=="albums": TextButton {dialog-control:true;enabled:!AppState.collection-saving && !AppState.collection-fetching;text:AppState.collection-fetching ? "Searching..." : "Find cover online";clicked=>{AppState.collection-action("fetch-cover");}}
         Text {text:AppState.collection-kind=="playlists" ? "Playlist name" : AppState.collection-kind=="folders" ? "Folder name and location come from your directory." : "Saving changes this tag in every song in this collection.";color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.6275) : 0.6275);font-size:12px;wrap:word-wrap;}
         name-input:=LineEdit {visible:AppState.collection-kind!="folders";enabled:!AppState.collection-saving && !AppState.collection-fetching;accessible-label:"Collection name";changed has-focus=>{AppState.text-input-focused=self.has-focus;}text<=>AppState.collection-name;placeholder-text:"Name";height:AppState.collection-kind=="folders" ? 0px : 40px;}
         if AppState.collection-status!="": Text {text:AppState.collection-status;color:AppState.ink.with-alpha(0.75);font-size:12px;wrap:word-wrap;}
