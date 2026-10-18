@@ -364,15 +364,16 @@ pub(super) fn verify(case: &mut UiCase) {
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
+    screenshot(pixels, "queue-docked");
     window.dispatch_event(WindowEvent::PointerPressed {
-        position: slint::LogicalPosition::new(920.0, 695.0),
+        position: slint::LogicalPosition::new(1000.0, 180.0),
         button: PointerEventButton::Left,
     });
     window.dispatch_event(WindowEvent::PointerMoved {
-        position: slint::LogicalPosition::new(920.0, 762.0),
+        position: slint::LogicalPosition::new(1000.0, 247.0),
     });
     window.dispatch_event(WindowEvent::PointerReleased {
-        position: slint::LogicalPosition::new(920.0, 762.0),
+        position: slint::LogicalPosition::new(1000.0, 247.0),
         button: PointerEventButton::Left,
     });
     assert!(
