@@ -46,9 +46,10 @@ pub fn update_playlist_cover(
 pub fn get_playlists(conn: &Connection) -> Result<Vec<Playlist>, String> {
     let mut statement = conn
         .prepare(
-            "SELECT p.id, p.name, p.cover_path, COUNT(ps.id) AS song_count
+            "SELECT p.id, p.name, p.cover_path, COUNT(s.id) AS song_count
              FROM playlists p
              LEFT JOIN playlist_songs ps ON p.id = ps.playlist_id
+             LEFT JOIN active_songs s ON s.id = ps.song_id
              GROUP BY p.id
              ORDER BY p.created_at DESC",
         )
@@ -176,7 +177,7 @@ pub fn get_playlist_export_songs(
         .prepare(
             "SELECT s.path, s.title, s.artist, s.duration
              FROM playlist_songs ps
-             INNER JOIN songs s ON s.id = ps.song_id
+             INNER JOIN active_songs s ON s.id = ps.song_id
              WHERE ps.playlist_id = ?1
              ORDER BY ps.position ASC",
         )

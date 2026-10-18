@@ -200,6 +200,8 @@ pub(crate) fn install_keyboard(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Requ
                 s.set_collection_dialog(false);
             } else if s.get_playlist_dialog() {
                 s.set_playlist_dialog(false);
+            } else if s.get_folder_dialog() {
+                s.set_folder_dialog(false);
             } else if s.get_playlist_picker_open() {
                 s.set_playlist_picker_open(false);
             } else if s.get_menu_open() {
@@ -217,7 +219,11 @@ pub(crate) fn install_keyboard(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Requ
             ui.invoke_focus_shell();
             return true;
         }
-        if s.get_metadata_open() || s.get_playlist_dialog() || s.get_collection_dialog() {
+        if s.get_metadata_open()
+            || s.get_playlist_dialog()
+            || s.get_collection_dialog()
+            || s.get_folder_dialog()
+        {
             return false;
         }
         if key == f11 {

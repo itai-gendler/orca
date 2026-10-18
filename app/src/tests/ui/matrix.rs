@@ -10,6 +10,7 @@ pub(super) fn verify_keyboard_and_display_matrix(ui: &OrcaWindow, window: &Minim
     state.set_metadata_open(false);
     state.set_collection_dialog(false);
     state.set_playlist_dialog(false);
+    state.set_folder_dialog(false);
     state.set_queue_open(false);
     state.set_menu_open(false);
     state.set_collection_menu_open(false);
@@ -77,6 +78,27 @@ pub(super) fn verify_keyboard_and_display_matrix(ui: &OrcaWindow, window: &Minim
         "folders",
         "settings",
     ];
+    state.set_folder_root("C:/Music".into());
+    state.set_folder_current("C:/Music".into());
+    state.set_folder_choices(
+        Rc::new(VecModel::from(vec![
+            FolderChoice {
+                path: "C:/Music/Albums".into(),
+                name: "Albums".into(),
+                mode: "inherit".into(),
+                included: true,
+                has_children: true,
+            },
+            FolderChoice {
+                path: "C:/Music/Skip".into(),
+                name: "Skip".into(),
+                mode: "exclude".into(),
+                included: false,
+                has_children: false,
+            },
+        ]))
+        .into(),
+    );
     let mut cases = 0;
     for dpi in [1.0f32, 1.25, 1.5, 2.0] {
         state.set_display_dpr(dpi);
@@ -94,6 +116,7 @@ pub(super) fn verify_keyboard_and_display_matrix(ui: &OrcaWindow, window: &Minim
                         state.set_metadata_open(cases % 8 == 1);
                         state.set_collection_dialog(cases % 8 == 2);
                         state.set_playlist_dialog(cases % 8 == 3);
+                        state.set_folder_dialog(cases % 8 == 4);
                         window
                             .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: dpi });
                         let physical_width = (width as f32 * dpi) as u32;
@@ -122,6 +145,7 @@ pub(super) fn verify_keyboard_and_display_matrix(ui: &OrcaWindow, window: &Minim
     state.set_metadata_open(false);
     state.set_collection_dialog(false);
     state.set_playlist_dialog(false);
+    state.set_folder_dialog(false);
     state.set_full_player(false);
     state.set_display_dpr(1.0);
     window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: 1.0 });

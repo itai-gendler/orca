@@ -87,6 +87,61 @@ fn adding_likes_preserves_existing_library_and_playlists() {
 }
 
 #[test]
+fn folder_visibility_migration_is_additive_idempotent_and_keeps_old_reader_version() {
+    let mut conn = legacy();
+    conn.execute_batch(SCHEMA).unwrap();
+    conn.execute_batch(
+        "INSERT INTO playlists(id,name) VALUES(9,'Mix');
+        INSERT INTO playlist_songs(playlist_id,song_id,position) VALUES(9,1,0);
+        PRAGMA user_version=2;",
+    )
+    .unwrap();
+    migrate(&mut conn).unwrap();
+    crate::db::set_song_liked(&conn, 1, true).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM active_songs", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    conn.execute("UPDATE songs SET library_visible=0 WHERE id=1", [])
+        .unwrap();
+    migrate(&mut conn).unwrap();
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM active_songs", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM liked_songs", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        conn.query_row("SELECT COUNT(*) FROM playlist_songs", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM orca_schema_migrations WHERE revision=4",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        1
+    );
+}
+
+#[test]
 fn preview_version_three_is_repaired_without_losing_likes() {
     let directory =
         std::env::temp_dir().join(format!("orca-likes-preview-schema-{}", std::process::id()));

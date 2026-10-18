@@ -60,7 +60,7 @@ fn recover_metadata_locked(conn: &rusqlite::Connection, directory: &Path) -> Res
     let path = Path::new(&recovery.path);
     let indexed: bool = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM songs WHERE path=?1)",
+            "SELECT EXISTS(SELECT 1 FROM active_songs WHERE path=?1)",
             [&recovery.path],
             |row| row.get(0),
         )
@@ -265,7 +265,7 @@ impl Backend {
         let removed_cover = self
             .conn
             .query_row(
-                "SELECT artwork_url='DELETED' FROM songs WHERE path=?1",
+                "SELECT artwork_url='DELETED' FROM active_songs WHERE path=?1",
                 [path],
                 |row| row.get::<_, Option<bool>>(0),
             )

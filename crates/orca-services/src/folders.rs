@@ -34,7 +34,7 @@ impl Backend {
         let mut statement = self
             .conn
             .prepare(&format!(
-                "SELECT s.path,COALESCE(NULLIF(NULLIF(s.artwork_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') FROM songs s WHERE ?1='' OR ({filter}) ORDER BY s.path COLLATE NOCASE,s.id"
+                "SELECT s.path,COALESCE(NULLIF(NULLIF(s.artwork_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') FROM active_songs s WHERE ?1='' OR ({filter}) ORDER BY s.path COLLATE NOCASE,s.id"
             ))
             .map_err(|e| e.to_string())?;
         let paths = statement
@@ -119,7 +119,7 @@ impl Backend {
         let filter = super::catalog::predicate("folders").replace("?2", "?1");
         self.conn
             .query_row(
-                &format!("SELECT EXISTS(SELECT 1 FROM songs s WHERE {filter})"),
+                &format!("SELECT EXISTS(SELECT 1 FROM active_songs s WHERE {filter})"),
                 [&key],
                 |row| row.get(0),
             )
@@ -132,7 +132,7 @@ impl Backend {
         }
         let key = key.replace('\\', "/");
         let filter = super::catalog::predicate("folders").replace("?2", "?1");
-        let artwork: Option<String> = self.conn.query_row(&format!("SELECT COALESCE(NULLIF(NULLIF(s.artwork_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) AS cover FROM songs s WHERE ({filter}) AND cover IS NOT NULL ORDER BY s.path COLLATE NOCASE,s.id LIMIT 1"), [&key], |row|row.get(0)).optional().map_err(|e|e.to_string())?;
+        let artwork: Option<String> = self.conn.query_row(&format!("SELECT COALESCE(NULLIF(NULLIF(s.artwork_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) AS cover FROM active_songs s WHERE ({filter}) AND cover IS NOT NULL ORDER BY s.path COLLATE NOCASE,s.id LIMIT 1"), [&key], |row|row.get(0)).optional().map_err(|e|e.to_string())?;
         let overrides = self.collection_overrides()?;
         let entry = overrides.get(&serde_json::json!(["folders", key, ""]).to_string());
         Ok(Group {

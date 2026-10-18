@@ -6,6 +6,7 @@ use std::{collections::HashSet, path::PathBuf, time::Duration};
 // additive tables. Numbered migrations record which additions have run.
 const MIN_READER_VERSION: i64 = 2;
 const LIKES_MIGRATION: i64 = 3;
+const FOLDER_RULES_MIGRATION: i64 = 4;
 const LIKES_PREVIEW_VERSION: i64 = 3;
 const LIKES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS liked_songs (
     song_id INTEGER PRIMARY KEY REFERENCES songs(id) ON DELETE CASCADE,
@@ -100,6 +101,32 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     if version != MIN_READER_VERSION {
         tx.pragma_update(None, "user_version", MIN_READER_VERSION)?;
     }
+    let folder_rules_applied: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM orca_schema_migrations WHERE revision=?1)",
+        [FOLDER_RULES_MIGRATION],
+        |row| row.get(0),
+    )?;
+    if !folder_rules_applied {
+        ensure_column(
+            &tx,
+            "songs",
+            "library_visible",
+            "INTEGER NOT NULL DEFAULT 1",
+        )?;
+        tx.execute_batch(
+            "CREATE TABLE IF NOT EXISTS folder_rules (
+            path TEXT PRIMARY KEY,
+            included INTEGER NOT NULL CHECK(included IN (0,1))
+        );",
+        )?;
+        tx.execute(
+            "INSERT INTO orca_schema_migrations(revision) VALUES(?1)",
+            [FOLDER_RULES_MIGRATION],
+        )?;
+    }
+    tx.execute_batch(
+        "CREATE VIEW IF NOT EXISTS active_songs AS SELECT * FROM songs WHERE library_visible=1;",
+    )?;
     tx.commit()
 }
 

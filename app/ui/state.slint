@@ -7,6 +7,8 @@ export struct CatalogGroup {
     count: int, cover: image, cover-missing:bool,
 }
 export struct PlaylistChoice { key:string, title:string, selected:bool, }
+export struct FolderChoice { path:string, name:string, mode:string, included:bool, has-children:bool, }
+export struct FolderRuleDraft { path:string, mode:string, }
 export struct LyricWord {text:string,time:float,end-time:float,}
 export struct LyricLine { text: string, time: float, words:[LyricWord], }
 export struct LyricSpan { x:float,y:float,width:float,height:float,time:float,end-time:float,rtl:bool, }
@@ -21,7 +23,7 @@ export global AppState {
     in-out property<bool> keyboard-navigation:false;
     in-out property<float> display-dpr:1;
     out property<string> focus-layer:modal-open ? "dialog" : menu-open || collection-menu-open || playlist-picker-open ? "menu" : queue-open && full-player ? "queue" : full-player ? "full" : "browse";
-    out property<bool> modal-open:metadata-open || collection-dialog || playlist-dialog;
+    out property<bool> modal-open:metadata-open || collection-dialog || playlist-dialog || folder-dialog;
     in-out property<color> player-accent:white;
     in-out property<color> background-accent:#626262;
     in-out property<bool> light-theme:false;
@@ -135,6 +137,13 @@ export global AppState {
     in-out property <string> playlist-name;
     in-out property <string> playlist-edit-action:"create";
     in-out property <[string]> folders;
+    in-out property <bool> folder-dialog;
+    in-out property <bool> folder-adding;
+    in-out property <string> folder-root;
+    in-out property <string> folder-current;
+    in-out property <[FolderChoice]> folder-choices;
+    in-out property <[FolderRuleDraft]> folder-rules;
+    callback folder-tree(string,string,string);
     callback browse();
     callback play(string);
     callback command(string, float);

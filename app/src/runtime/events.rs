@@ -1,6 +1,8 @@
 //! Apply service results to UI models. Late results are checked against current identity/revision.
 use super::RuntimeModels;
-use crate::controllers::{collections::stage_collection_draft, preferences::register_font};
+use crate::controllers::{
+    collections::stage_collection_draft, folders, preferences::register_font,
+};
 use crate::presentation::{reset_empty_player, waveform};
 use crate::{
     errors, lyrics, metadata, models,
@@ -143,6 +145,31 @@ pub(super) fn apply(
                     ))
                     .into(),
                 );
+            }
+            Event::FolderChildren {
+                root,
+                current,
+                adding,
+                open,
+                nodes,
+            } => {
+                if !open && !s.get_folder_dialog() {
+                    continue;
+                }
+                if s.get_folder_dialog()
+                    && (s.get_folder_root() != root || s.get_folder_adding() != adding)
+                {
+                    continue;
+                }
+                if !s.get_folder_dialog() && current == root {
+                    s.set_folder_rules(Rc::new(VecModel::default()).into());
+                }
+                let rows = folders::choices(nodes, &folders::drafts(&s));
+                s.set_folder_root(root.into());
+                s.set_folder_current(current.into());
+                s.set_folder_adding(adding);
+                s.set_folder_choices(Rc::new(VecModel::from(rows)).into());
+                s.set_folder_dialog(true);
             }
             Event::Playback(snapshot) => {
                 if let Some(tray) = poll_tray.as_ref().and_then(slint::Weak::upgrade) {

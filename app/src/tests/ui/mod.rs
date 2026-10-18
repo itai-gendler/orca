@@ -2,6 +2,7 @@ mod browsing;
 mod collections;
 mod display;
 mod editors;
+mod folders;
 mod keyboard;
 mod lyrics;
 mod matrix;
@@ -165,6 +166,7 @@ fn software_rendering_and_full_player_input_isolation() {
     player::verify(&mut case);
     themes::verify(&mut case);
     editors::verify(&mut case);
+    folders::verify(&mut case);
     matrix::verify_keyboard_and_display_matrix(&case.ui, &case.window);
     collections::verify_narrow_details(&mut case);
     case.ui.hide().unwrap();

@@ -82,7 +82,7 @@ impl Backend {
             "album" => "s.album",
             _ => "s.title",
         };
-        let sql = format!("SELECT COUNT(*) FROM songs s WHERE (s.title LIKE ?1 ESCAPE '\\' OR s.artist LIKE ?1 ESCAPE '\\' OR s.album LIKE ?1 ESCAPE '\\' OR s.format LIKE ?1 ESCAPE '\\') AND ({}) AND (?2 IS NOT NULL AND ?3 IS NOT NULL) AND {sort} < ?4 COLLATE NOCASE", predicate(&query.kind));
+        let sql = format!("SELECT COUNT(*) FROM active_songs s WHERE (s.title LIKE ?1 ESCAPE '\\' OR s.artist LIKE ?1 ESCAPE '\\' OR s.album LIKE ?1 ESCAPE '\\' OR s.format LIKE ?1 ESCAPE '\\') AND ({}) AND (?2 IS NOT NULL AND ?3 IS NOT NULL) AND {sort} < ?4 COLLATE NOCASE", predicate(&query.kind));
         self.conn
             .query_row(
                 &sql,
@@ -99,7 +99,7 @@ impl Backend {
     pub fn context_paths(&self, query: &ffi::Query) -> Result<Vec<String>, String> {
         let filter = query_filter(query);
         let sql = format!(
-            "SELECT s.path FROM songs s WHERE {filter} ORDER BY {}",
+            "SELECT s.path FROM active_songs s WHERE {filter} ORDER BY {}",
             query_order(query)
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -123,7 +123,7 @@ impl Backend {
         let total = self
             .conn
             .query_row(
-                &format!("SELECT COUNT(*) FROM songs s WHERE {filter}"),
+                &format!("SELECT COUNT(*) FROM active_songs s WHERE {filter}"),
                 params![search, query.key, query.secondary],
                 |r| r.get(0),
             )
@@ -131,7 +131,7 @@ impl Backend {
         let order = query_order(query);
         // Select page IDs before resolving artwork fallback subqueries. Deep
         // offsets must not assemble every skipped track's media presentation.
-        let sql = format!("SELECT {TRACK_COLUMNS} FROM songs s JOIN (SELECT s.id FROM songs s WHERE {filter} ORDER BY {order} LIMIT ?4 OFFSET ?5) page ON page.id=s.id ORDER BY {order}");
+        let sql = format!("SELECT {TRACK_COLUMNS} FROM active_songs s JOIN (SELECT s.id FROM active_songs s WHERE {filter} ORDER BY {order} LIMIT ?4 OFFSET ?5) page ON page.id=s.id ORDER BY {order}");
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let tracks = stmt
             .query_map(
@@ -157,7 +157,7 @@ impl Backend {
     pub fn track(&self, path: &str) -> Result<ffi::Track, String> {
         self.conn
             .query_row(
-                &format!("SELECT {TRACK_COLUMNS} FROM songs s WHERE s.path=?1"),
+                &format!("SELECT {TRACK_COLUMNS} FROM active_songs s WHERE s.path=?1"),
                 [path],
                 read_track,
             )
@@ -166,7 +166,7 @@ impl Backend {
 
     pub fn statistics(&self) -> Result<ffi::Statistics, String> {
         let (songs, artists, albums, genres) = self.conn.query_row(
-            "SELECT COUNT(*),COUNT(DISTINCT artist),COUNT(DISTINCT album_artist || char(0) || album),COUNT(DISTINCT COALESCE(genre,'Unknown')) FROM songs", [],
+            "SELECT COUNT(*),COUNT(DISTINCT artist),COUNT(DISTINCT album_artist || char(0) || album),COUNT(DISTINCT COALESCE(genre,'Unknown')) FROM active_songs", [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).map_err(|e| e.to_string())?;
         let playlists = self
             .conn
@@ -288,7 +288,7 @@ impl Backend {
         }
         if kind == "genres" {
             let mut tiles = self.conn.prepare(
-                "SELECT COALESCE(artwork_preview_url,artwork_thumb_url,artwork_url) AS cover FROM songs WHERE genre=?1 AND COALESCE(artwork_preview_url,artwork_thumb_url,artwork_url) IS NOT NULL GROUP BY cover ORDER BY MIN(title) COLLATE NOCASE LIMIT 4")
+                "SELECT COALESCE(artwork_preview_url,artwork_thumb_url,artwork_url) AS cover FROM active_songs WHERE genre=?1 AND COALESCE(artwork_preview_url,artwork_thumb_url,artwork_url) IS NOT NULL GROUP BY cover ORDER BY MIN(title) COLLATE NOCASE LIMIT 4")
                 .map_err(|e| e.to_string())?;
             return db::get_genres(&self.conn)?
                 .into_iter()
@@ -358,7 +358,7 @@ impl Backend {
         } else {
             "''"
         };
-        let sql = format!("SELECT {column},{secondary},COUNT(*),COALESCE(MAX(artwork_preview_url),MAX(artwork_url),'') FROM songs WHERE {column} LIKE ?1 ESCAPE '\\' GROUP BY {column},{secondary} ORDER BY {column} COLLATE NOCASE");
+        let sql = format!("SELECT {column},{secondary},COUNT(*),COALESCE(MAX(artwork_preview_url),MAX(artwork_url),'') FROM active_songs WHERE {column} LIKE ?1 ESCAPE '\\' GROUP BY {column},{secondary} ORDER BY {column} COLLATE NOCASE");
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map([search_pattern(search)], |r| {

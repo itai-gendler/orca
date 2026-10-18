@@ -71,7 +71,7 @@ pub(super) fn run(
             let renamed_albums: Vec<String> = if kind == "artists" && rename.is_some() {
                 let mut statement = backend
                     .conn
-                    .prepare("SELECT DISTINCT album FROM songs WHERE artist=?1 AND album_artist=?1")
+                    .prepare("SELECT DISTINCT album FROM active_songs WHERE artist=?1 AND album_artist=?1")
                     .map_err(|e| e.to_string())?;
                 let albums = statement
                     .query_map([key], |row| row.get(0))
@@ -223,6 +223,23 @@ pub(super) fn run(
                         .map_err(|e| e.to_string())?;
                     db::delete_song_by_path(&tx, &path)?;
                     removed.push(path);
+                }
+            }
+            let mut statement = tx
+                .prepare("SELECT path FROM folder_rules")
+                .map_err(|e| e.to_string())?;
+            let rules = statement
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(|e| e.to_string())?
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(|e| e.to_string())?;
+            drop(statement);
+            for path in rules {
+                if path_in_root(&path, &target)
+                    && !remaining.iter().any(|root| path_in_root(&path, root))
+                {
+                    tx.execute("DELETE FROM folder_rules WHERE path=?1", [&path])
+                        .map_err(|e| e.to_string())?;
                 }
             }
             db::set_setting(

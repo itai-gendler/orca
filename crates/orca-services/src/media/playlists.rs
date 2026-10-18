@@ -9,7 +9,7 @@ impl Backend {
             return Ok(None);
         };
         let thumbnail: Option<String> = self.conn.query_row(
-            "SELECT NULLIF(NULLIF(artwork_thumb_url,''),'DELETED') AS thumb FROM songs WHERE ?1 IN (artwork_url,artwork_preview_url,artwork_thumb_url) AND NULLIF(NULLIF(artwork_thumb_url,''),'DELETED') IS NOT NULL
+            "SELECT NULLIF(NULLIF(artwork_thumb_url,''),'DELETED') AS thumb FROM active_songs WHERE ?1 IN (artwork_url,artwork_preview_url,artwork_thumb_url) AND NULLIF(NULLIF(artwork_thumb_url,''),'DELETED') IS NOT NULL
              UNION ALL SELECT NULLIF(NULLIF(artwork_thumb_path,''),'DELETED') FROM artist_artworks WHERE artwork_path=?1 AND NULLIF(NULLIF(artwork_thumb_path,''),'DELETED') IS NOT NULL
              UNION ALL SELECT NULLIF(NULLIF(artwork_thumb_path,''),'DELETED') FROM album_artworks WHERE artwork_path=?1 AND NULLIF(NULLIF(artwork_thumb_path,''),'DELETED') IS NOT NULL LIMIT 1",
             [path], |row| row.get(0),
@@ -25,7 +25,7 @@ impl Backend {
             return Ok(Some(path));
         }
         self.conn.query_row(
-            "SELECT COALESCE(NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_url,'DELETED'),''),(SELECT NULLIF(NULLIF(artwork_path,'DELETED'),'') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) FROM playlist_songs ps JOIN songs s ON s.id=ps.song_id WHERE ps.playlist_id=?1 AND COALESCE(NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_url,'DELETED'),''),(SELECT NULLIF(NULLIF(artwork_path,'DELETED'),'') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) IS NOT NULL ORDER BY ps.position,ps.song_id LIMIT 1",
+            "SELECT COALESCE(NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_url,'DELETED'),''),(SELECT NULLIF(NULLIF(artwork_path,'DELETED'),'') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) FROM playlist_songs ps JOIN active_songs s ON s.id=ps.song_id WHERE ps.playlist_id=?1 AND COALESCE(NULLIF(NULLIF(s.artwork_preview_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_thumb_url,'DELETED'),''),NULLIF(NULLIF(s.artwork_url,'DELETED'),''),(SELECT NULLIF(NULLIF(artwork_path,'DELETED'),'') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album)) IS NOT NULL ORDER BY ps.position,ps.song_id LIMIT 1",
             [id], |row| row.get(0)).optional().map_err(|e| e.to_string()).map(Option::flatten)
     }
     pub fn playlist_action(

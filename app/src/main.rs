@@ -322,7 +322,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         let tx = service.tx.clone();
         state.on_folder_action(move |action, folder| {
-            let request = if action == "rescan" {
+            let request = if action == "manage" {
+                Request::FolderPreview {
+                    root: folder.to_string(),
+                    current: folder.to_string(),
+                    adding: false,
+                }
+            } else if action == "rescan" {
                 Request::Folder(folder.into())
             } else {
                 Request::Operation(
@@ -340,11 +346,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let tx = tx.clone();
             std::thread::spawn(move || {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    let _ = tx.send(Request::Folder(path.to_string_lossy().into()));
+                    let root = path.to_string_lossy().into_owned();
+                    let _ = tx.send(Request::FolderPreview {
+                        current: root.clone(),
+                        root,
+                        adding: true,
+                    });
                 }
             });
         });
     }
+    controllers::folders::install(&ui, service.tx.clone());
     {
         let weak = ui.as_weak();
         let header_art = detail_art.clone();

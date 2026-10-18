@@ -1,5 +1,6 @@
 //! Cooperative scanning and its joined worker lifecycle.
 use super::{Backend, ScanState};
+use crate::folder_rules::FolderPolicy;
 use orca_core::{db, library, scanner};
 use rusqlite::params;
 use std::{
@@ -76,18 +77,30 @@ fn scan_folder(data_dir: &Path, folder: &Path, state: &ScanState) -> Result<(), 
     conn.busy_timeout(Duration::from_secs(5))
         .map_err(|e| e.to_string())?;
     let artwork = data_dir.join("artwork");
+    let policy = FolderPolicy::load(&conn)?;
     // Amortize durable commits on large libraries while still publishing small
     // or slow scans promptly. Every committed batch remains transactional.
     const BATCH_SIZE: usize = 256;
     let mut batch = Vec::with_capacity(BATCH_SIZE);
     let mut last_commit = Instant::now();
     let mut seen = std::collections::HashSet::new();
-    for entry in walkdir::WalkDir::new(folder).follow_links(false) {
+    for entry in walkdir::WalkDir::new(folder)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            !entry.file_type().is_dir()
+                || policy.included(entry.path())
+                || policy.has_included_descendant(entry.path())
+        })
+    {
         if state.cancel.load(Ordering::Acquire) {
             break;
         }
         let entry = entry.map_err(|e| e.to_string())?;
-        if !entry.file_type().is_file() || !scanner::is_supported_audio_file(entry.path()) {
+        if !entry.file_type().is_file()
+            || !policy.included(entry.path())
+            || !scanner::is_supported_audio_file(entry.path())
+        {
             continue;
         }
         let path = entry.path().to_string_lossy().to_string();
@@ -133,7 +146,10 @@ fn scan_folder(data_dir: &Path, folder: &Path, state: &ScanState) -> Result<(), 
     if !state.cancel.load(Ordering::Acquire) {
         let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
         for (path, id) in db::get_song_path_index(&tx)? {
-            if Path::new(&path).starts_with(folder) && !seen.contains(&path) {
+            if Path::new(&path).starts_with(folder)
+                && policy.included(Path::new(&path))
+                && !seen.contains(&path)
+            {
                 tx.execute("DELETE FROM playlist_songs WHERE song_id=?1", [id])
                     .map_err(|e| e.to_string())?;
                 db::delete_song_by_path(&tx, &path)?;

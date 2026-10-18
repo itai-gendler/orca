@@ -34,7 +34,7 @@ pub fn remove_artist_artwork(conn: &Connection, artist_name: &str) -> Result<(),
 pub fn get_artists_needing_artwork(conn: &Connection) -> Result<Vec<String>, String> {
     let mut statement = conn
         .prepare(
-            "SELECT DISTINCT s.artist FROM songs s
+            "SELECT DISTINCT s.artist FROM active_songs s
              LEFT JOIN artist_artworks aa ON s.artist = aa.artist_name
              WHERE aa.artwork_path IS NULL
              ORDER BY s.artist COLLATE NOCASE ASC",
@@ -85,7 +85,7 @@ pub fn get_albums_needing_artwork(
     let mut statement = conn
         .prepare(
             "SELECT DISTINCT s.album_artist || ':' || s.album, s.album, s.album_artist
-             FROM songs s
+             FROM active_songs s
              LEFT JOIN album_artworks aa ON (s.album_artist || ':' || s.album) = aa.album_key
              WHERE aa.artwork_path IS NULL
              ORDER BY s.album COLLATE NOCASE ASC",

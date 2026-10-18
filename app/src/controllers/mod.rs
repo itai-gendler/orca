@@ -3,6 +3,7 @@
 pub(crate) mod browse;
 pub(crate) mod collections;
 pub(crate) mod editor;
+pub(crate) mod folders;
 pub(crate) mod input;
 pub(crate) mod playlists;
 pub(crate) mod preferences;

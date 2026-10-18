@@ -5,6 +5,7 @@ pub use orca_services::operation_types::{OperationError, OperationRequest, Opera
 use orca_services::types::{Group, Query, Snapshot, Statistics, Track};
 pub use orca_services::types::{MetadataAssetKind, MetadataDocument, MetadataRequest};
 pub use orca_services::types::{PlaylistChange, PlaylistEdit};
+use orca_services::FolderNode;
 use serde::{Deserialize, Serialize};
 pub enum Request {
     Browse(u64, Query, String),
@@ -15,6 +16,17 @@ pub enum Request {
     Seek(f64),
     Volume(f64),
     Folder(String),
+    FolderPreview {
+        root: String,
+        current: String,
+        adding: bool,
+    },
+    AddFolder(String, Vec<(String, String)>),
+    SetFolderRule {
+        root: String,
+        path: String,
+        mode: String,
+    },
     Refresh,
     Reconcile,
     SourceChanged,
@@ -35,6 +47,13 @@ pub enum Event {
     Page(u64, u32, u32, Vec<Track>),
     Groups(u64, Vec<Group>),
     Statistics(Statistics),
+    FolderChildren {
+        root: String,
+        current: String,
+        adding: bool,
+        open: bool,
+        nodes: Vec<FolderNode>,
+    },
     Playback(Snapshot),
     Now(Track),
     GroupGone(String, String, String),

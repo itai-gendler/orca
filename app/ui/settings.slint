@@ -141,9 +141,10 @@ export component SettingsView inherits Rectangle {
                 }
             }
             if root.tab==2 || AppState.search!="": VerticalLayout {spacing:24px;alignment:start;
-                if AppState.setting-matches("Music folders additions changes",AppState.search): SettingRow {title:"Music folders";description:"Folders included in your library; rescan to find changes";TextButton {text:"Add folder";clicked => {AppState.add-folder();}}}
+                if AppState.setting-matches("Music folders additions changes exclusions",AppState.search): SettingRow {title:"Music folders";description:"Add music roots and choose which subfolders belong in your library";TextButton {text:"Add folder";clicked => {AppState.add-folder();}}}
                 for folder in AppState.folders: Rectangle {visible:AppState.setting-matches("Music folders "+folder,AppState.search);height:self.visible ? 64px : 0px;border-radius:6px;border-width:1px;border-color:AppState.ink.with-alpha(0.1020);
-                    Text {x:16px;width:parent.width - 210px;text:AppState.display-path(folder);color:AppState.ink;vertical-alignment:center;overflow:elide;}
+                    Text {x:16px;width:parent.width - 290px;text:AppState.display-path(folder);color:AppState.ink;vertical-alignment:center;overflow:elide;}
+                    TextButton {x:parent.width - 276px;y:12px;width:76px;text:"Manage";clicked => {AppState.folder-action("manage",folder);}}
                     TextButton {x:parent.width - 192px;y:12px;width:84px;text:"Rescan";clicked => {AppState.folder-action("rescan",folder);}}
                     TextButton {x:parent.width - 100px;y:12px;width:84px;text:"Remove";clicked => {AppState.folder-action("remove",folder);}}}
                 if AppState.setting-matches("Automatically fetch missing artwork download album covers artist images library alpha experimental",AppState.search): SettingRow {title:"Automatically fetch artwork (Alpha)";description:"Download missing album covers and artist images when the library loads";hint:"Online artwork fetching is experimental. Images may be unavailable or matched incorrectly. You can change or remove covers manually.";

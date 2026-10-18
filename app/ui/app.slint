@@ -1,5 +1,5 @@
 import { LineEdit, ComboBox, Palette } from "std-widgets.slint";
-import { AppState, Song, CatalogGroup, PlaylistChoice, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft } from "state.slint";
+import { AppState, Song, CatalogGroup, PlaylistChoice, FolderChoice, FolderRuleDraft, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft } from "state.slint";
 import { Icons } from "icons.slint";
 import { SidebarLogos } from "sidebar-logos.slint";
 import { IconButton, TextButton, SearchField, AmbientBackground, ActionFocus } from "controls.slint";
@@ -7,11 +7,12 @@ import { SongsView, CatalogView, CatalogDetails } from "library.slint";
 import { FoldersView } from "folders.slint";
 import { PlayerBar, FullPlayer, QueuePanel, InlineLyricsPanel, PlaylistPicker } from "players.slint";
 import { SettingsView } from "settings.slint";
+import { FolderReviewDialog } from "folder_review.slint";
 import { MetadataEditor, TrackMenu, PlaylistDialog, CollectionDialog, CollectionMenu } from "dialogs.slint";
 import "assets/fonts/PlusJakartaSans-Regular.ttf";
 import "assets/fonts/PlusJakartaSans-SemiBold.ttf";
 import "assets/fonts/PlusJakartaSans-Bold.ttf";
-export { AppState, Song, CatalogGroup, PlaylistChoice, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft }
+export { AppState, Song, CatalogGroup, PlaylistChoice, FolderChoice, FolderRuleDraft, LyricLine, LyricWord, LyricSpan, LyricRender, MetadataDraft }
 
 export component OrcaWindow inherits Window {
     title:"Orca";icon:SidebarLogos.logo-32;preferred-width:1280px;preferred-height:820px;min-width:500px;min-height:600px;
@@ -137,6 +138,7 @@ export component OrcaWindow inherits Window {
     if AppState.collection-menu-open: CollectionMenu {x:clamp(AppState.collection-menu-x*1px,8px,root.width - self.width - 8px);y:clamp(AppState.collection-menu-y*1px,8px,root.height - self.height - 8px);}
     if AppState.collection-dialog: Rectangle {background:#000000b8;TouchArea {}CollectionDialog {width:min(440px,parent.width - 40px);height:min(AppState.collection-kind=="folders" ? 540px : 440px,parent.height - 40px);x:(parent.width - self.width)/2;y:(parent.height - self.height)/2;}}
     if AppState.playlist-dialog: Rectangle {background:#000000b8;TouchArea {}PlaylistDialog {width:min(440px,parent.width - 40px);x:(parent.width - self.width)/2;y:(parent.height - self.height)/2;}}
+    if AppState.folder-dialog: Rectangle {background:#000000b8;TouchArea {}FolderReviewDialog {width:min(620px,parent.width - 40px);height:min(max(340px,266px + AppState.folder-choices.length * 52px),min(600px,parent.height - 32px));x:(parent.width - self.width)/2;y:(parent.height - self.height)/2;}}
     if AppState.error!="": Rectangle {
         x:root.sidebar-width+20px;y:root.height - 156px;width:min(650px,root.width - self.x - 20px);height:48px;
         background:AppState.light-theme ? #fff0ee : #292123;border-color:AppState.light-theme ? #b45e62 : #6f444a;border-width:1px;border-radius:6px;

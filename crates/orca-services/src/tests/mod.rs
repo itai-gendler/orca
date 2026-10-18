@@ -2,6 +2,7 @@ use super::*;
 mod artwork;
 mod catalog;
 mod collection_names;
+mod folder_rules;
 mod folders;
 mod lyrics;
 mod metadata;

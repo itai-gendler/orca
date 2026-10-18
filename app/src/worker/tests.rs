@@ -2,6 +2,99 @@ use super::*;
 use orca_services::types::Snapshot;
 
 #[test]
+fn folder_review_defers_first_scan_and_persists_rules_before_registration() {
+    let directory = std::env::temp_dir().join(format!(
+        "orca-folder-review-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let root = directory.join("music");
+    let child = root.join("skip");
+    fs::create_dir_all(&child).unwrap();
+    let service = Service::start(directory.clone(), false);
+    let root = root.canonicalize().unwrap().to_string_lossy().into_owned();
+    let child = child.canonicalize().unwrap().to_string_lossy().into_owned();
+    service
+        .tx
+        .send(Request::FolderPreview {
+            root: root.clone(),
+            current: root.clone(),
+            adding: true,
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "folder preview was not delivered"
+        );
+        match service.rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(Event::FolderChildren {
+                nodes,
+                adding: true,
+                ..
+            }) => {
+                assert_eq!(nodes.len(), 1);
+                assert!(nodes[0].included);
+                break;
+            }
+            Ok(Event::Statistics(stats)) => {
+                assert!(stats.roots.is_empty(), "preview must not register a root")
+            }
+            _ => {}
+        }
+    }
+    service
+        .tx
+        .send(Request::AddFolder(
+            root.clone(),
+            vec![(child.clone(), "exclude".into())],
+        ))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(Instant::now() < deadline, "folder was not registered");
+        if let Ok(Event::Statistics(stats)) = service.rx.recv_timeout(Duration::from_millis(100)) {
+            if stats.roots.contains(&root) {
+                break;
+            }
+        }
+    }
+    service
+        .tx
+        .send(Request::FolderPreview {
+            root: root.clone(),
+            current: root,
+            adding: false,
+        })
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "saved folder rules were not returned"
+        );
+        if let Ok(Event::FolderChildren {
+            nodes,
+            adding: false,
+            ..
+        }) = service.rx.recv_timeout(Duration::from_millis(100))
+        {
+            assert_eq!(nodes.len(), 1);
+            assert_eq!(nodes[0].path, child);
+            assert_eq!(nodes[0].explicit, "exclude");
+            assert!(!nodes[0].included);
+            break;
+        }
+    }
+    drop(service);
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn metadata_failure_keeps_its_editor_generation_and_never_reports_success() {
     let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
         "../target/slint/metadata-failure-{}",

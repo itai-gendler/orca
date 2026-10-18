@@ -3,7 +3,9 @@
 mod artwork;
 mod bootstrap;
 mod catalog;
+mod folder_rules;
 mod folders;
+pub use folder_rules::FolderNode;
 mod media;
 pub mod operation_types;
 mod operations;

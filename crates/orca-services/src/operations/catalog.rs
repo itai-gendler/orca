@@ -27,14 +27,14 @@ pub(super) fn run(
             let (count, duration): (i64, i64) = backend
                 .conn
                 .query_row(
-                    "SELECT COUNT(*), COALESCE(SUM(duration),0) FROM songs WHERE artist=?1",
+                    "SELECT COUNT(*), COALESCE(SUM(duration),0) FROM active_songs WHERE artist=?1",
                     [key],
                     |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .map_err(|e| e.to_string())?;
             let mut statement = backend
                 .conn
-                .prepare("SELECT DISTINCT album_artist,album FROM songs WHERE artist=?1")
+                .prepare("SELECT DISTINCT album_artist,album FROM active_songs WHERE artist=?1")
                 .map_err(|e| e.to_string())?;
             let memberships = statement
                 .query_map([key], |row| {
@@ -95,7 +95,7 @@ pub(super) fn run(
             if identity.kind == crate::operation_types::CollectionKind::Albums && !overridden {
                 use rusqlite::OptionalExtension;
                 let artwork: Option<String> = backend.conn.query_row(
-                    "SELECT COALESCE(NULLIF(a.artwork_path,'DELETED'),NULLIF(s.artwork_url,''),NULLIF(s.artwork_preview_url,''),NULLIF(s.artwork_thumb_url,'')) AS cover FROM songs s LEFT JOIN album_artworks a ON a.album_key=s.album_artist || ':' || s.album WHERE s.album=?1 AND s.album_artist=?2 AND cover IS NOT NULL ORDER BY s.disc_number,s.track_number,s.id LIMIT 1",
+                    "SELECT COALESCE(NULLIF(a.artwork_path,'DELETED'),NULLIF(s.artwork_url,''),NULLIF(s.artwork_preview_url,''),NULLIF(s.artwork_thumb_url,'')) AS cover FROM active_songs s LEFT JOIN album_artworks a ON a.album_key=s.album_artist || ':' || s.album WHERE s.album=?1 AND s.album_artist=?2 AND cover IS NOT NULL ORDER BY s.disc_number,s.track_number,s.id LIMIT 1",
                     rusqlite::params![identity.key, identity.secondary], |row| row.get(0),
                 ).optional().map_err(|error| error.to_string())?;
                 response.artwork = artwork;
@@ -156,7 +156,7 @@ pub(super) fn run(
                 }
                 _ => return Err("Unknown detail type".into()),
             };
-            let sql = format!("SELECT COUNT(*),COALESCE(SUM(s.duration),0) FROM songs s WHERE ({}) AND (?3 IS NOT NULL)", crate::catalog::predicate(kind));
+            let sql = format!("SELECT COUNT(*),COALESCE(SUM(s.duration),0) FROM active_songs s WHERE ({}) AND (?3 IS NOT NULL)", crate::catalog::predicate(kind));
             let (count, duration): (i64, i64) = backend
                 .conn
                 .query_row(&sql, rusqlite::params!["", key, secondary], |row| {

@@ -179,6 +179,77 @@ pub(super) fn run(worker: LibraryWorker) {
                     Request::Folder(folder) if !pending_scans.contains(&folder) => {
                         pending_scans.push_back(folder);
                     }
+                    Request::FolderPreview {
+                        root,
+                        current,
+                        adding,
+                    } => {
+                        let root = std::path::Path::new(&root)
+                            .canonicalize()
+                            .map_err(|e| e.to_string())?
+                            .to_string_lossy()
+                            .into_owned();
+                        let current = std::path::Path::new(&current)
+                            .canonicalize()
+                            .map_err(|e| e.to_string())?
+                            .to_string_lossy()
+                            .into_owned();
+                        let adding = adding
+                            && !backend.statistics()?.roots.iter().any(|existing| {
+                                std::path::Path::new(existing).canonicalize().ok()
+                                    == std::path::Path::new(&root).canonicalize().ok()
+                            });
+                        let nodes =
+                            backend.folder_children(&current, adding.then_some(root.as_str()))?;
+                        if adding && root == current && nodes.is_empty() {
+                            let root = backend.add_folder_with_rules(&root, &[])?;
+                            if !pending_scans.contains(&root) {
+                                pending_scans.push_back(root);
+                            }
+                            reconcile = true;
+                        } else {
+                            let _ = events.send(Event::FolderChildren {
+                                root,
+                                current,
+                                adding,
+                                open: true,
+                                nodes,
+                            });
+                        }
+                    }
+                    Request::AddFolder(root, rules) => {
+                        let root = backend.add_folder_with_rules(&root, &rules)?;
+                        if !pending_scans.contains(&root) {
+                            pending_scans.push_back(root);
+                        }
+                        reconcile = true;
+                    }
+                    Request::SetFolderRule { root, path, mode } => {
+                        backend.set_folder_rule(&path, &mode)?;
+                        if !pending_scans.contains(&root) {
+                            pending_scans.push_back(root.clone());
+                        }
+                        reconcile = true;
+                        let nodes = backend.folder_children(
+                            &std::path::Path::new(&path)
+                                .parent()
+                                .unwrap_or(std::path::Path::new(&root))
+                                .to_string_lossy(),
+                            None,
+                        )?;
+                        let current = std::path::Path::new(&path)
+                            .parent()
+                            .unwrap_or(std::path::Path::new(&root))
+                            .to_string_lossy()
+                            .into_owned();
+                        let _ = events.send(Event::FolderChildren {
+                            root,
+                            current,
+                            adding: false,
+                            open: false,
+                            nodes,
+                        });
+                    }
                     Request::Reconcile => {
                         reconcile = true;
                         if !playback.path.is_empty() {
