@@ -88,6 +88,21 @@ fn saved_editor_cover_is_embedded_and_invalid_cover_does_not_change_the_file() {
     .unwrap();
     draft["cover_to_embed"] = serde_json::json!(cover);
     b.save_metadata(&draft.to_string()).unwrap();
+    assert!(
+        !db::lyrics_suppressed(&b.conn, path.to_str().unwrap()),
+        "saving other metadata without lyrics must allow automatic lookup"
+    );
+    b.fetch_missing_lyrics_with(path.to_str().unwrap(), None, |_, _, _, _, _| {
+        Ok("Temporary online lyrics".into())
+    })
+    .unwrap();
+    assert_eq!(
+        b.lyrics(path.to_str().unwrap()).unwrap(),
+        "Temporary online lyrics"
+    );
+    let editor: serde_json::Value =
+        serde_json::from_str(&b.metadata(path.to_str().unwrap()).unwrap()).unwrap();
+    assert!(editor["lyrics"].is_null());
     // A fresh file scan reads embedded pictures, not album database overrides.
     let saved = library::scan_music_file(&path, &f.0.join("verify-artwork")).unwrap();
     assert_eq!(saved.title, "Edited title");
@@ -137,21 +152,25 @@ fn saved_editor_cover_is_embedded_and_invalid_cover_does_not_change_the_file() {
     draft["lyrics"] = serde_json::Value::Null;
     b.save_metadata(&draft.to_string()).unwrap();
     assert!(b.lyrics(path.to_str().unwrap()).unwrap().is_empty());
-    assert!(
-        b.fetch_missing_lyrics(path.to_str().unwrap())
-            .unwrap()
-            .is_empty(),
-        "manual removal must not trigger online fetching"
-    );
+    assert!(db::lyrics_suppressed(&b.conn, path.to_str().unwrap()));
+    let fetched = b
+        .fetch_missing_lyrics_with(path.to_str().unwrap(), None, |_, _, _, _, _| {
+            panic!("an explicit lyric clear must not start an automatic lookup")
+        })
+        .unwrap();
+    assert_eq!(fetched, "");
+    assert_eq!(b.lyrics(path.to_str().unwrap()).unwrap(), fetched);
     let editor: serde_json::Value =
         serde_json::from_str(&b.metadata(path.to_str().unwrap()).unwrap()).unwrap();
     assert!(editor["lyrics"].is_null());
     let reopened = f.backend();
-    assert!(reopened.lyrics(path.to_str().unwrap()).unwrap().is_empty());
-    assert!(reopened
-        .fetch_missing_lyrics(path.to_str().unwrap())
-        .unwrap()
-        .is_empty());
+    assert_eq!(reopened.lyrics(path.to_str().unwrap()).unwrap(), fetched);
+    assert_eq!(
+        reopened
+            .fetch_missing_lyrics(path.to_str().unwrap())
+            .unwrap(),
+        fetched
+    );
     drop(reopened);
     fs::remove_file(path.with_extension("lrc")).unwrap();
     draft["lyrics"] = serde_json::json!("Restored lyrics");

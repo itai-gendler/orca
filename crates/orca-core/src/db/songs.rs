@@ -17,6 +17,7 @@ pub fn save_edited_song(
     conn: &Connection,
     song: &LocalSong,
     lyrics: &str,
+    lyrics_removed: bool,
     cover_removed: bool,
 ) -> Result<(), String> {
     let tx = Transaction::new_unchecked(conn, TransactionBehavior::Immediate)
@@ -25,7 +26,7 @@ pub fn save_edited_song(
     if cover_removed {
         tx.execute("UPDATE songs SET artwork_url='DELETED',artwork_preview_url='DELETED',artwork_thumb_url='DELETED' WHERE path=?1", [&song.path]).map_err(|e| e.to_string())?;
     }
-    super::set_lyrics(&tx, &song.path, lyrics)?;
+    super::set_lyrics_with_suppression(&tx, &song.path, lyrics, lyrics_removed)?;
     tx.commit().map_err(|e| e.to_string())
 }
 
@@ -379,7 +380,7 @@ mod tests {
         conn.execute_batch("CREATE TRIGGER fail_edited_lyrics BEFORE INSERT ON lyrics BEGIN SELECT RAISE(ABORT,'injected lyrics failure'); END;").unwrap();
         let mut changed = original;
         changed.title = "After".into();
-        assert!(save_edited_song(conn, &changed, "New lyrics", true).is_err());
+        assert!(save_edited_song(conn, &changed, "New lyrics", false, true).is_err());
         assert!(conn.is_autocommit());
         assert_eq!(get_all_songs(conn).unwrap()[0].title, "Before");
         assert_eq!(
@@ -388,7 +389,7 @@ mod tests {
         );
         conn.execute_batch("DROP TRIGGER fail_edited_lyrics")
             .unwrap();
-        save_edited_song(conn, &changed, "New lyrics", true).unwrap();
+        save_edited_song(conn, &changed, "New lyrics", false, true).unwrap();
         assert_eq!(get_all_songs(conn).unwrap()[0].title, "After");
         assert_eq!(
             super::super::get_lyrics(conn, "original").unwrap(),

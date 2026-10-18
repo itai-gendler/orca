@@ -29,10 +29,28 @@ pub fn get_lyrics(conn: &Connection, song_path: &str) -> Option<String> {
 }
 
 pub fn set_lyrics(conn: &Connection, song_path: &str, lyrics_text: &str) -> Result<(), String> {
+    set_lyrics_with_suppression(conn, song_path, lyrics_text, false)
+}
+
+pub fn lyrics_suppressed(conn: &Connection, song_path: &str) -> bool {
+    conn.query_row(
+        "SELECT suppressed FROM lyrics WHERE song_path = ?1",
+        params![song_path],
+        |row| row.get::<_, bool>(0),
+    )
+    .unwrap_or(false)
+}
+
+pub fn set_lyrics_with_suppression(
+    conn: &Connection,
+    song_path: &str,
+    lyrics_text: &str,
+    suppressed: bool,
+) -> Result<(), String> {
     conn.execute(
-        "INSERT INTO lyrics (song_path, lyrics_text) VALUES (?1, ?2)
-         ON CONFLICT(song_path) DO UPDATE SET lyrics_text = excluded.lyrics_text",
-        params![song_path, lyrics_text],
+        "INSERT INTO lyrics (song_path, lyrics_text, suppressed) VALUES (?1, ?2, ?3)
+         ON CONFLICT(song_path) DO UPDATE SET lyrics_text = excluded.lyrics_text, suppressed = excluded.suppressed",
+        params![song_path, lyrics_text, suppressed],
     )
     .map_err(|error| error.to_string())?;
     Ok(())

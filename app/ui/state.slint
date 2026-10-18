@@ -50,6 +50,7 @@ export global AppState {
     in-out property <string> collection-path;
     in-out property <bool> full-player: false;
     in-out property <bool> lyrics-open: false;
+    in-out property <bool> lyrics-refreshing: false;
     in-out property <bool> queue-open: false;
     in-out property <bool> playlist-picker-open: false;
     in-out property <bool> playlist-picker-loading: false;
@@ -152,6 +153,7 @@ export global AppState {
     callback volume-changed(float);
     callback add-folder();
     callback refresh();
+    callback refresh-lyrics();
     callback folder-action(string, string);
     callback open-group(string, string, string);
     callback go-back();

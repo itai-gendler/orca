@@ -94,5 +94,6 @@ pub fn new_backend(data_dir: &str, audio: bool) -> Result<Box<Backend>, String> 
         audio_thread,
         ended,
         transitioned,
+        session_lyrics: Mutex::new(super::media::lyrics::SessionLyrics::default()),
     }))
 }

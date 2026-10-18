@@ -206,6 +206,7 @@ pub(super) fn apply(
                 }
             }
             Event::Now(track) => {
+                s.set_lyrics_refreshing(false);
                 if *now.borrow() == track {
                     continue;
                 }
@@ -236,7 +237,7 @@ pub(super) fn apply(
                     if now.borrow().path.is_empty() {
                         ""
                     } else {
-                        "Loading lyrics…"
+                        "Just a sec, fetching lyrics…"
                     }
                     .into(),
                 );
@@ -278,9 +279,15 @@ pub(super) fn apply(
                 s.set_waveform(waveform(&peaks));
                 s.set_active_line(lyrics::active(&lines.borrow(), s.get_position()));
             }
-            Event::Lyrics(at, text, status)
+            Event::Lyrics(at, text, status, refresh)
                 if at == poll_service.analysis_generation.load(Ordering::Relaxed) =>
             {
+                if refresh {
+                    s.set_lyrics_refreshing(false);
+                    if text.is_empty() && !lines.borrow().is_empty() {
+                        s.set_error(status.clone().into());
+                    }
+                }
                 if !text.is_empty() {
                     if s.get_metadata_open()
                         && s.get_draft().path.as_str() == now.borrow().path

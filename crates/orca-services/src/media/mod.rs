@@ -1,5 +1,5 @@
 //! Metadata writes and recovery coordination.
-mod lyrics;
+pub(crate) mod lyrics;
 mod playlists;
 mod waveform;
 use super::{
@@ -79,6 +79,10 @@ fn recover_metadata_locked(conn: &rusqlite::Connection, directory: &Path) -> Res
             conn,
             &song,
             lyrics,
+            lyrics.is_empty()
+                && (db::lyrics_suppressed(conn, &song.path)
+                    || db::get_lyrics(conn, &song.path)
+                        .is_some_and(|text| !text.trim().is_empty())),
             recovery.cover_removed && song.artwork.is_none(),
         )?;
     }
@@ -95,7 +99,7 @@ impl Backend {
             .map_err(|e| e.to_string())?
             .token();
         let mut song = library::scan_music_file(Path::new(path), &self.data_dir.join("artwork"))?;
-        let lyrics = self.lyrics(path)?;
+        let lyrics = self.saved_lyrics(path)?;
         song.lyrics = if lyrics.trim().is_empty() {
             None
         } else {
@@ -208,6 +212,9 @@ impl Backend {
             .unwrap_or_default()
             .trim()
             .to_string();
+        let lyrics_removed = saved_lyrics.is_empty()
+            && (db::lyrics_suppressed(&self.conn, &path)
+                || !self.saved_lyrics(&path)?.trim().is_empty());
         recover_metadata_locked(&self.conn, &self.data_dir)?;
         let before_version = orca_core::atomic_file::FileVersion::read(Path::new(&path))
             .map_err(|e| e.to_string())?
@@ -242,7 +249,13 @@ impl Backend {
         self.scan.revision.fetch_add(1, Ordering::Relaxed);
         let finish = (|| {
             let song = library::scan_music_file(Path::new(&path), &self.data_dir.join("artwork"))?;
-            db::save_edited_song(&self.conn, &song, &saved_lyrics, remove_cover)?;
+            db::save_edited_song(
+                &self.conn,
+                &song,
+                &saved_lyrics,
+                lyrics_removed,
+                remove_cover,
+            )?;
             fs::remove_file(journal).map_err(|e| e.to_string())
         })();
         finish.map_err(|error| format!("Metadata saved but library update failed: {error}"))?;
@@ -261,7 +274,7 @@ impl Backend {
             .lock()
             .map_err(|_| "Metadata save lock unavailable")?;
         recover_metadata_locked(&self.conn, &self.data_dir)?;
-        let lyrics = self.lyrics(path)?;
+        let lyrics = self.saved_lyrics(path)?;
         let removed_cover = self
             .conn
             .query_row(
@@ -294,7 +307,13 @@ impl Backend {
         }
         self.scan.revision.fetch_add(1, Ordering::Relaxed);
         let song = library::scan_music_file(Path::new(path), &self.data_dir.join("artwork"))?;
-        db::save_edited_song(&self.conn, &song, &lyrics, removed_cover)?;
+        db::save_edited_song(
+            &self.conn,
+            &song,
+            &lyrics,
+            db::lyrics_suppressed(&self.conn, path),
+            removed_cover,
+        )?;
         fs::remove_file(journal).map_err(|e| e.to_string())
     }
 }

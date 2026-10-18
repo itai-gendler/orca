@@ -7,6 +7,7 @@ use std::{collections::HashSet, path::PathBuf, time::Duration};
 const MIN_READER_VERSION: i64 = 2;
 const LIKES_MIGRATION: i64 = 3;
 const FOLDER_RULES_MIGRATION: i64 = 4;
+const LYRICS_SUPPRESSION_MIGRATION: i64 = 5;
 const LIKES_PREVIEW_VERSION: i64 = 3;
 const LIKES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS liked_songs (
     song_id INTEGER PRIMARY KEY REFERENCES songs(id) ON DELETE CASCADE,
@@ -124,6 +125,20 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
             [FOLDER_RULES_MIGRATION],
         )?;
     }
+    let lyrics_suppression_applied: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM orca_schema_migrations WHERE revision=?1)",
+        [LYRICS_SUPPRESSION_MIGRATION],
+        |row| row.get(0),
+    )?;
+    if !lyrics_suppression_applied {
+        // Old empty entries were also written by unrelated metadata edits, so
+        // only future explicit removals may suppress automatic lookup.
+        ensure_column(&tx, "lyrics", "suppressed", "INTEGER NOT NULL DEFAULT 0")?;
+        tx.execute(
+            "INSERT INTO orca_schema_migrations(revision) VALUES(?1)",
+            [LYRICS_SUPPRESSION_MIGRATION],
+        )?;
+    }
     tx.execute_batch(
         "CREATE VIEW IF NOT EXISTS active_songs AS SELECT * FROM songs WHERE library_visible=1;",
     )?;
@@ -228,7 +243,8 @@ CREATE TABLE IF NOT EXISTS settings (
         );
 CREATE TABLE IF NOT EXISTS lyrics (
             song_path TEXT PRIMARY KEY,
-            lyrics_text TEXT NOT NULL
+            lyrics_text TEXT NOT NULL,
+            suppressed INTEGER NOT NULL DEFAULT 0
         );
 CREATE TABLE IF NOT EXISTS playlists (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

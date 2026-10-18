@@ -68,11 +68,12 @@ component LyricsViewport inherits Rectangle {
     in property<bool> dark;
     in property<length> font-size:32px;
     private property<color> ink:root.dark ? white : AppState.ink;
+    private property<bool> retryable:AppState.lyrics-status=="Oops, lyrics not found :("
+        || AppState.lyrics-status=="Couldn't fetch lyrics. Please try again later.";
     clip:true;
     init=>{AppState.lyrics-width=self.width/1px;AppState.lyric-font-size=self.font-size/1px;}
     changed width=>{AppState.lyrics-width=self.width/1px;}
     changed font-size=>{AppState.lyric-font-size=self.font-size/1px;}
-    if AppState.lyrics.length==0: Text {text:AppState.lyrics-status;color:root.ink.with-alpha(0.5020);horizontal-alignment:center;vertical-alignment:center;}
     resume-follow:=Timer {interval:5000ms;triggered=>{lyrics.follow=true;lyrics.follow-current();}}
     motion:=ScrollMotion {offset<=>lyrics.content-y;minimum:-max(0px,lyrics.content-height - lyrics.height);page:lyrics.height;}
     lyrics := Flickable {
@@ -125,6 +126,32 @@ component LyricsViewport inherits Rectangle {
                 scroll-event(event)=>{lyrics.wheel-scroll(event.delta-y);return accept;}}
         }
     }
+    if AppState.lyrics.length==0: Rectangle {
+        VerticalLayout {
+            y:(parent.height - self.height)/2;width:parent.width;
+            height:root.retryable ? 108px : 48px;
+            spacing:12px;alignment:center;
+            Text {
+                height:48px;
+                text:AppState.lyrics-refreshing ? "Just a sec, fetching lyrics..." : AppState.lyrics-status;
+                color:root.ink.with-alpha(0.72);
+                font-size:18px*AppState.scale;
+                horizontal-alignment:center;
+                vertical-alignment:center;
+                wrap:word-wrap;
+            }
+            if root.retryable && !AppState.lyrics-refreshing: Rectangle {
+                height:40px;
+                TextButton {
+                    x:(parent.width - self.width)/2;
+                    layer:AppState.full-player ? "full" : "browse";
+                    dark:root.dark;
+                    text:"Try again";
+                    clicked=>{AppState.lyrics-refreshing=true;AppState.refresh-lyrics();}
+                }
+            }
+        }
+    }
 }
 
 export component InlineLyricsPanel inherits Rectangle {
@@ -136,6 +163,7 @@ export component InlineLyricsPanel inherits Rectangle {
     background:root.overlay ? AppState.base : transparent;
     Rectangle {x:0px;width:1px;height:parent.height;background:AppState.ink.with-alpha(0.12);}
     Text {x:20px;y:16px;width:parent.width - 76px;height:32px;text:"LYRICS";color:AppState.ink.with-alpha(0.65);font-size:12px;font-weight:700;vertical-alignment:center;}
+    IconButton {label:"Refresh lyrics";x:parent.width - 96px;y:12px;width:32px;height:32px;icon:Icons.refresh;enabled:AppState.now.path!="" && !AppState.lyrics-refreshing;clicked=>{AppState.lyrics-refreshing=true;AppState.refresh-lyrics();}}
     IconButton {label:"Close lyrics";x:parent.width - 56px;y:12px;width:32px;height:32px;icon:Icons.close;clicked=>{AppState.lyrics-open=false;}}
     LyricsViewport {x:20px;y:60px;width:parent.width - 40px;height:parent.height - 76px;font-size:clamp(root.width*0.065,23px,30px)*AppState.scale;}
 }

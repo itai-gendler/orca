@@ -265,9 +265,25 @@ pub(super) fn verify(case: &mut UiCase) {
     ));
     screenshot(pixels, "full-player-like-and-playlist");
     state.set_lyrics_open(true);
+    let lyric_refreshes = Rc::new(Cell::new(0));
+    let observed_refreshes = lyric_refreshes.clone();
+    state.on_refresh_lyrics(move || observed_refreshes.set(observed_refreshes.get() + 1));
+    state.set_lyrics(Default::default());
+    state.set_lyrics_status("Oops, lyrics not found :(".into());
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
+    screenshot(pixels, "full-player-lyrics-retry");
+    click(window, 880.0, 474.0);
+    assert_eq!(lyric_refreshes.get(), 1);
+    assert!(state.get_lyrics_refreshing());
+    click(window, 880.0, 474.0);
+    assert_eq!(
+        lyric_refreshes.get(),
+        1,
+        "retry button disappears while the lookup is pending"
+    );
+    state.set_lyrics_refreshing(false);
     screenshot(pixels, "full-player-lyrics-controls");
     window.set_size(slint::PhysicalSize::new(960, 820));
     window.draw_if_needed(|renderer| {

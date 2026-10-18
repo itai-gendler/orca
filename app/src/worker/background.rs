@@ -22,8 +22,8 @@ pub(super) struct BackgroundWorkers {
     pub auto_artwork: Arc<AtomicBool>,
     pub analysis_generation: Arc<AtomicU64>,
     pub operation_rx: Receiver<OperationRequest>,
-    pub analysis_rx: LatestReceiver<(u64, String)>,
-    pub lyrics_rx: LatestReceiver<(u64, String)>,
+    pub analysis_rx: LatestReceiver<(u64, String, bool)>,
+    pub lyrics_rx: LatestReceiver<(u64, String, bool)>,
 }
 pub(super) fn spawn(workers: BackgroundWorkers) -> Vec<thread::JoinHandle<()>> {
     let BackgroundWorkers {
@@ -112,7 +112,7 @@ pub(super) fn spawn(workers: BackgroundWorkers) -> Vec<thread::JoinHandle<()>> {
                 let Some(job) = jobs.receive() else {
                     continue;
                 };
-                let (revision, path) = job;
+                let (revision, path, refresh) = job;
                 if revision != generation.load(Ordering::Relaxed) {
                     continue;
                 }
@@ -127,39 +127,43 @@ pub(super) fn spawn(workers: BackgroundWorkers) -> Vec<thread::JoinHandle<()>> {
                 }
                 let backend = backend.as_ref().unwrap();
                 if network {
-                    let lyrics = backend.fetch_missing_lyrics_cancellable(&path, Some(&stop));
+                    let lyrics = if refresh {
+                        backend.refresh_lyrics_cancellable(&path, Some(&stop))
+                    } else {
+                        backend.fetch_missing_lyrics_cancellable(&path, Some(&stop))
+                    };
                     if !stop.load(Ordering::Relaxed)
                         && revision == generation.load(Ordering::Relaxed)
                     {
                         let (text, status) = match lyrics {
                             Ok(text) if !text.is_empty() => (text, String::new()),
-                            Ok(_) => (String::new(), "No lyrics found".into()),
+                            Ok(_) => (String::new(), "Oops, lyrics not found :(".into()),
                             Err(error)
                                 if error == "Lyrics not found"
                                     || error == "No lyrics found for a matching recording" =>
                             {
-                                (String::new(), "No matching lyrics found in LRCLIB".into())
+                                (String::new(), "Oops, lyrics not found :(".into())
                             }
                             Err(_) => (
                                 String::new(),
-                                "Lyrics lookup failed; try again later".into(),
+                                "Couldn't fetch lyrics. Please try again later.".into(),
                             ),
                         };
-                        let _ = events.send(Event::Lyrics(revision, text, status));
+                        let _ = events.send(Event::Lyrics(revision, text, status, refresh));
                     }
                 } else {
                     let text = backend.lyrics(&path).unwrap_or_default();
-                    if !stop.load(Ordering::Relaxed)
+                    // An empty local result must not overwrite the network
+                    // worker's final status if it finishes first.
+                    if !text.is_empty()
+                        && !stop.load(Ordering::Relaxed)
                         && revision == generation.load(Ordering::Relaxed)
                     {
                         let _ = events.send(Event::Lyrics(
                             revision,
                             text.clone(),
-                            if text.is_empty() {
-                                "Fetching lyrics…".into()
-                            } else {
-                                String::new()
-                            },
+                            String::new(),
+                            false,
                         ));
                     }
                     let peaks = backend

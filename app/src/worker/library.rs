@@ -33,8 +33,8 @@ pub(super) struct LibraryWorker {
     pub events: Sender<Event>,
     pub requests: Receiver<Request>,
     pub operations: mpsc::SyncSender<OperationRequest>,
-    pub analysis_jobs: LatestJob<(u64, String)>,
-    pub lyrics_jobs: LatestJob<(u64, String)>,
+    pub analysis_jobs: LatestJob<(u64, String, bool)>,
+    pub lyrics_jobs: LatestJob<(u64, String, bool)>,
 }
 pub(super) fn run(worker: LibraryWorker) {
     let LibraryWorker {
@@ -273,6 +273,14 @@ pub(super) fn run(worker: LibraryWorker) {
                             }
                         }
                     }
+                    Request::RefreshLyrics if !playback.path.is_empty() => {
+                        lyrics_jobs.submit((
+                            revision.load(Ordering::Relaxed),
+                            playback.path.clone(),
+                            true,
+                        ));
+                    }
+                    Request::RefreshLyrics => {}
                     Request::Queue(action) => playback.queue(&backend, audio, action)?,
                     Request::Operation(request) => {
                         if request.is_local_read() {
@@ -304,9 +312,9 @@ pub(super) fn run(worker: LibraryWorker) {
                                 let _ = events.send(Event::Now(track));
                             }
                             let at = revision.fetch_add(1, Ordering::Relaxed) + 1;
-                            analysis_jobs.submit((at, playback.path.clone()));
+                            analysis_jobs.submit((at, playback.path.clone(), false));
                             if audio {
-                                lyrics_jobs.submit((at, playback.path.clone()));
+                                lyrics_jobs.submit((at, playback.path.clone(), false));
                             }
                         }
                     }
@@ -523,9 +531,9 @@ pub(super) fn run(worker: LibraryWorker) {
                         if let Ok(track) = backend.track(&playback.path) {
                             let _ = events.send(Event::Now(track));
                         }
-                        analysis_jobs.submit((at, playback.path.clone()));
+                        analysis_jobs.submit((at, playback.path.clone(), false));
                         if audio {
-                            lyrics_jobs.submit((at, playback.path.clone()));
+                            lyrics_jobs.submit((at, playback.path.clone(), false));
                         }
                         let tracks = playback
                             .navigation

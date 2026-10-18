@@ -217,7 +217,7 @@ fn imported_legacy_profile_survives_upgrade_and_second_startup() {
         CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT);
         INSERT INTO settings VALUES('library_scan_roots','["C:/Music"]');
         CREATE TABLE lyrics(song_path TEXT PRIMARY KEY,lyrics_text TEXT NOT NULL);
-        INSERT INTO lyrics VALUES('C:/Music/direct.flac','[00:00.00]Preserved lyrics');
+        INSERT INTO lyrics(song_path,lyrics_text) VALUES('C:/Music/direct.flac','[00:00.00]Preserved lyrics');
         CREATE TABLE playlists(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,cover_path TEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
         INSERT INTO playlists(id,name,cover_path) VALUES(1,'Saved mix','chosen-cover.png');
         CREATE TABLE playlist_songs(id INTEGER PRIMARY KEY AUTOINCREMENT,playlist_id INTEGER NOT NULL,song_id INTEGER NOT NULL,position INTEGER NOT NULL);

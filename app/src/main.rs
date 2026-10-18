@@ -321,6 +321,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     {
         let tx = service.tx.clone();
+        state.on_refresh_lyrics(move || {
+            let _ = tx.send(Request::RefreshLyrics);
+        });
+    }
+    {
+        let tx = service.tx.clone();
         state.on_folder_action(move |action, folder| {
             let request = if action == "manage" {
                 Request::FolderPreview {

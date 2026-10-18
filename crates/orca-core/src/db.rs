@@ -12,7 +12,8 @@ pub use artwork::{
 };
 
 pub use cache::{
-    get_cached_waveform, get_lyrics, get_setting, save_waveform, set_lyrics, set_setting,
+    get_cached_waveform, get_lyrics, get_setting, lyrics_suppressed, save_waveform, set_lyrics,
+    set_lyrics_with_suppression, set_setting,
 };
 
 pub use catalog::{get_albums, get_artists, get_genres, AlbumEntry, ArtistEntry, GenreEntry};

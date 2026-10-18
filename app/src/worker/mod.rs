@@ -95,8 +95,8 @@ impl Service {
     pub fn start(directory: PathBuf, audio: bool) -> Self {
         let (tx, requests) = mpsc::channel();
         let (events, rx) = mpsc::channel();
-        let (analysis_jobs, analysis_rx) = latest_channel::<(u64, String)>();
-        let (lyrics_jobs, lyrics_rx) = latest_channel::<(u64, String)>();
+        let (analysis_jobs, analysis_rx) = latest_channel::<(u64, String, bool)>();
+        let (lyrics_jobs, lyrics_rx) = latest_channel::<(u64, String, bool)>();
         let (operations, operation_rx) = mpsc::sync_channel::<OperationRequest>(8);
         let stop = Arc::new(AtomicBool::new(false));
         let auto_artwork = Arc::new(AtomicBool::new(false));

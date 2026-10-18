@@ -48,6 +48,7 @@ pub struct Backend {
     audio_thread: Option<JoinHandle<()>>,
     ended: Arc<AtomicU64>,
     transitioned: Arc<AtomicU64>,
+    session_lyrics: Mutex<media::lyrics::SessionLyrics>,
 }
 
 impl Backend {

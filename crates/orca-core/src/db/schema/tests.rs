@@ -233,7 +233,7 @@ fn duplicate_windows_paths_preserve_playlist_and_waveform_references() {
         INSERT INTO playlists(id,name) VALUES(1,'Mix');
         INSERT INTO playlist_songs(playlist_id,song_id,position) VALUES(1,1,0);
         INSERT INTO waveforms VALUES('song.flac',2,'[0.2,0.4]');
-        INSERT INTO lyrics VALUES('song.flac','Saved lyrics');").unwrap();
+        INSERT INTO lyrics(song_path,lyrics_text) VALUES('song.flac','Saved lyrics');").unwrap();
     migrate(&mut conn).unwrap();
     assert_eq!(
         conn.query_row("SELECT song_id FROM playlist_songs", [], |r| r
