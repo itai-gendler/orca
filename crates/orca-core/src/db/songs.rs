@@ -86,8 +86,8 @@ pub fn replace_songs_in_db(conn: &Connection, songs: &[LocalSong]) -> Result<(),
 
 fn upsert_song(conn: &Connection, song: &LocalSong) -> Result<(), String> {
     conn.execute(
-        "INSERT INTO songs (title, artist, album_artist, album, year, track_number, disc_number, genre, path, duration, artwork_url, artwork_thumb_url, artwork_preview_url, lyrics, sample_rate, bitrate, bit_depth, format, modified_at, file_size)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
+        "INSERT INTO songs (title, artist, album_artist, album, year, track_number, disc_number, genre, path, duration, artwork_url, artwork_thumb_url, artwork_preview_url, lyrics, sample_rate, bitrate, bit_depth, format, modified_at, file_size, explicit_advisory)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
          ON CONFLICT DO UPDATE SET
              title = excluded.title,
              artist = excluded.artist,
@@ -108,7 +108,8 @@ fn upsert_song(conn: &Connection, song: &LocalSong) -> Result<(), String> {
              bit_depth = excluded.bit_depth,
              format = excluded.format,
              modified_at = excluded.modified_at,
-             file_size = excluded.file_size",
+             file_size = excluded.file_size,
+             explicit_advisory = excluded.explicit_advisory",
         params![
             song.title,
             song.artist,
@@ -129,7 +130,8 @@ fn upsert_song(conn: &Connection, song: &LocalSong) -> Result<(), String> {
             song.bit_depth,
             song.format,
             song.modified_at,
-            song.file_size
+            song.file_size,
+            song.explicit
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -144,7 +146,7 @@ pub fn get_all_songs(conn: &Connection) -> Result<Vec<LocalSong>, String> {
                     CASE WHEN s.artwork_url='DELETED' THEN NULL ELSE COALESCE(s.artwork_url, awa.artwork_path) END,
                     CASE WHEN s.artwork_url='DELETED' THEN NULL ELSE COALESCE(s.artwork_thumb_url, awa.artwork_thumb_path) END,
                     CASE WHEN s.artwork_url='DELETED' THEN NULL ELSE COALESCE(s.artwork_preview_url, awa.artwork_path) END,
-                    s.lyrics, s.sample_rate, s.bitrate, s.bit_depth, s.format, s.modified_at, s.file_size
+                    s.lyrics, s.sample_rate, s.bitrate, s.bit_depth, s.format, s.modified_at, s.file_size, s.explicit_advisory
              FROM songs s
              LEFT JOIN album_artworks awa ON (s.album_artist || ':' || s.album) = awa.album_key"
         )
@@ -173,6 +175,7 @@ pub fn get_all_songs(conn: &Connection) -> Result<Vec<LocalSong>, String> {
                 format: row.get(18)?,
                 modified_at: row.get(19)?,
                 file_size: row.get(20)?,
+                explicit: row.get(21)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -240,6 +243,7 @@ pub fn migrate_legacy_songs_if_needed(
                 track_number: None,
                 disc_number: None,
                 genre: None,
+                explicit: None,
                 duration: row.get(3)?,
                 artwork: row.get(4)?,
                 artwork_thumb: None,

@@ -14,6 +14,7 @@ pub struct Track {
     pub album: String,
     pub album_artist: String,
     pub genre: String,
+    pub explicit: bool,
     pub duration_ms: u64,
     pub artwork: String,
     pub artwork_thumb: String,

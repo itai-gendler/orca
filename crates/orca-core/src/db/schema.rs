@@ -8,6 +8,7 @@ const MIN_READER_VERSION: i64 = 2;
 const LIKES_MIGRATION: i64 = 3;
 const FOLDER_RULES_MIGRATION: i64 = 4;
 const LYRICS_SUPPRESSION_MIGRATION: i64 = 5;
+const EXPLICIT_ADVISORY_MIGRATION: i64 = 6;
 const LIKES_PREVIEW_VERSION: i64 = 3;
 const LIKES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS liked_songs (
     song_id INTEGER PRIMARY KEY REFERENCES songs(id) ON DELETE CASCADE,
@@ -139,6 +140,21 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
             [LYRICS_SUPPRESSION_MIGRATION],
         )?;
     }
+    let explicit_advisory_applied: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM orca_schema_migrations WHERE revision=?1)",
+        [EXPLICIT_ADVISORY_MIGRATION],
+        |row| row.get(0),
+    )?;
+    if !explicit_advisory_applied {
+        ensure_column(&tx, "songs", "explicit_advisory", "INTEGER")?;
+        ensure_column(&tx, "songs", "modified_at", "INTEGER")?;
+        // Existing rows need one tag read before a badge can be shown.
+        tx.execute("UPDATE songs SET modified_at=NULL", [])?;
+        tx.execute(
+            "INSERT INTO orca_schema_migrations(revision) VALUES(?1)",
+            [EXPLICIT_ADVISORY_MIGRATION],
+        )?;
+    }
     tx.execute_batch(
         "CREATE VIEW IF NOT EXISTS active_songs AS SELECT * FROM songs WHERE library_visible=1;",
     )?;
@@ -224,6 +240,7 @@ CREATE TABLE IF NOT EXISTS songs (
             track_number INTEGER,
             disc_number INTEGER,
             genre TEXT,
+            explicit_advisory INTEGER,
             path TEXT NOT NULL UNIQUE,
             duration INTEGER NOT NULL,
             artwork_url TEXT,

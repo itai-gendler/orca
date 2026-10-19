@@ -38,6 +38,14 @@ fn parse_tag_i32(value: Option<&str>) -> Option<i32> {
     first.parse::<i32>().ok().filter(|n| *n > 0)
 }
 
+fn explicit_advisory(value: Option<&str>) -> Option<bool> {
+    match value?.trim().to_ascii_lowercase().as_str() {
+        "1" | "4" | "true" | "yes" | "explicit" => Some(true),
+        "0" | "2" | "false" | "no" | "clean" | "inoffensive" => Some(false),
+        _ => None,
+    }
+}
+
 pub fn scan_music_file(path: &Path, artwork_dir: &Path) -> Result<LocalSong, String> {
     scan_music_file_with_metadata(path, artwork_dir, |_| {})
 }
@@ -83,6 +91,7 @@ where
                 track_number: None,
                 disc_number: None,
                 genre: None,
+                explicit: None,
                 duration: 0,
                 artwork: None,
                 artwork_thumb: None,
@@ -172,6 +181,7 @@ where
         };
 
     let lyrics = tag.and_then(|t| t.get_string(&ItemKey::Lyrics).map(|s| s.to_string()));
+    let explicit = tag.and_then(|t| explicit_advisory(t.get_string(&ItemKey::ParentalAdvisory)));
 
     let sample_rate = properties.sample_rate();
     let bitrate = properties.audio_bitrate();
@@ -199,6 +209,7 @@ where
         track_number,
         disc_number,
         genre,
+        explicit,
         duration,
         artwork: None,
         artwork_thumb: None,
@@ -232,4 +243,65 @@ where
     }
 
     Ok(song)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lofty::{
+        config::WriteOptions,
+        tag::{Tag, TagType},
+    };
+
+    #[test]
+    fn advisory_tag_from_disposable_audio_controls_explicit_status() {
+        let file = std::env::temp_dir().join(format!(
+            "orca-explicit-{}-{}.wav",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut wav = b"RIFF".to_vec();
+        wav.extend_from_slice(&38_u32.to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&1_u16.to_le_bytes());
+        wav.extend_from_slice(&8_000_u32.to_le_bytes());
+        wav.extend_from_slice(&16_000_u32.to_le_bytes());
+        wav.extend_from_slice(&2_u16.to_le_bytes());
+        wav.extend_from_slice(&16_u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&2_u32.to_le_bytes());
+        wav.extend_from_slice(&0_i16.to_le_bytes());
+        fs::write(&file, wav).unwrap();
+        assert_eq!(
+            scan_music_file(&file, std::env::temp_dir().as_path())
+                .unwrap()
+                .explicit,
+            None
+        );
+
+        let mut tag = Tag::new(TagType::Id3v2);
+        tag.insert_text(ItemKey::ParentalAdvisory, "1".into());
+        tag.save_to_path(&file, WriteOptions::default()).unwrap();
+        assert_eq!(
+            scan_music_file(&file, std::env::temp_dir().as_path())
+                .unwrap()
+                .explicit,
+            Some(true)
+        );
+
+        tag.insert_text(ItemKey::ParentalAdvisory, "2".into());
+        tag.save_to_path(&file, WriteOptions::default()).unwrap();
+        assert_eq!(
+            scan_music_file(&file, std::env::temp_dir().as_path())
+                .unwrap()
+                .explicit,
+            Some(false)
+        );
+        fs::remove_file(file).unwrap();
+    }
 }

@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn song_pages_and_now_playing_keep_track_explicit_advisory() {
+    let fixture = Fixture::new();
+    let backend = fixture.backend();
+    backend
+        .conn
+        .execute_batch(
+            "INSERT INTO songs(path,title,artist,album_artist,album,duration,explicit_advisory)
+        VALUES('explicit.flac','Explicit song','Artist','Artist','Album',1000,1),
+              ('unknown.flac','Unknown song','Artist','Artist','Album',1000,NULL);",
+        )
+        .unwrap();
+    let page = backend.page(&types::Query::default(), 0, 10).unwrap();
+    assert!(
+        page.tracks
+            .iter()
+            .find(|song| song.path == "explicit.flac")
+            .unwrap()
+            .explicit
+    );
+    assert!(
+        !page
+            .tracks
+            .iter()
+            .find(|song| song.path == "unknown.flac")
+            .unwrap()
+            .explicit
+    );
+    assert!(backend.track("explicit.flac").unwrap().explicit);
+}
+
+#[test]
 fn oversized_waveform_requests_reuse_the_decoder_sized_cache_without_opening_audio() {
     let fixture = Fixture::new();
     let backend = fixture.backend();

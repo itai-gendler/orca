@@ -30,6 +30,7 @@ pub fn text_song(track: &Track, index: usize) -> Song {
         album_artist: track.album_artist.clone().into(),
         duration: duration(track.duration_ms).into(),
         quality: track.quality.to_uppercase().into(),
+        explicit: track.explicit,
         index: index as i32,
         ..Default::default()
     }
@@ -73,6 +74,7 @@ fn build_song(
         album_artist: track.album_artist.clone().into(),
         duration: duration(track.duration_ms).into(),
         quality: track.quality.to_uppercase().into(),
+        explicit: track.explicit,
         cover_missing,
         cover: if thumbnail {
             // Exact physical size avoids another resize in the software renderer.

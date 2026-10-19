@@ -31,7 +31,8 @@ component SongTile inherits Rectangle {
         CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:root.song.cover;missing:root.song.cover-missing; image-fit:cover;}
         if root.selected: Rectangle {border-radius:3px;border-width:2px;border-color:AppState.accent;}
     }
-    Text {x:0px;y:(AppState.browse-artwork ? root.width : 0px)+8px;width:parent.width;height:20px;text:root.song.title;color:AppState.ink;font-weight:700;font-size:14px*AppState.scale;overflow:elide;}
+    Text {x:0px;y:(AppState.browse-artwork ? root.width : 0px)+8px;width:parent.width - (root.song.explicit ? 22px : 0px);height:20px;text:root.song.title;color:AppState.ink;font-weight:700;font-size:14px*AppState.scale;overflow:elide;}
+    if root.song.explicit: Rectangle {x:parent.width - 18px;y:(AppState.browse-artwork ? root.width : 0px)+10px;width:16px;height:16px;border-radius:2px;background:AppState.ink.with-alpha(0.18);Text {text:"E";color:AppState.ink;font-size:10px;font-weight:700;horizontal-alignment:center;vertical-alignment:center;}}
     Text {x:0px;y:(AppState.browse-artwork ? root.width : 0px)+28px;width:parent.width;height:18px;text:root.song.artist;color:root.selected ? AppState.ink : AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.4000) : 0.4000);font-weight:root.selected ? 600 : 400;font-size:12px*AppState.scale;overflow:elide;}
     area := TouchArea {
         enabled:root.song.path!="";
@@ -203,7 +204,8 @@ export component SongsView inherits Rectangle {
                 }
                 if AppState.browse-artwork: Rectangle {x:table.index-width;y:8px;width:28px;height:28px;border-radius:3px;clip:true;CoverImage {x:0px;y:0px;width:parent.width;height:parent.height;artwork:song.cover;missing:song.cover-missing;image-fit:cover;}}
                 private property<bool> show-quality:table.detail && AppState.quality-info && song.quality!="";
-                Text {x:table.index-width+(AppState.browse-artwork ? 40px : 0px);y:parent.show-quality ? 3px : 0px;height:parent.show-quality ? 22px : parent.height;width:table.title-width - (AppState.browse-artwork ? 60px : 20px);text:song.title;color:AppState.ink;font-weight:600;font-size:14px*AppState.scale;overflow:elide;vertical-alignment:center;}
+                Text {x:table.index-width+(AppState.browse-artwork ? 40px : 0px);y:parent.show-quality ? 3px : 0px;height:parent.show-quality ? 22px : parent.height;width:table.title-width - (AppState.browse-artwork ? 60px : 20px) - (song.explicit ? 22px : 0px);text:song.title;color:AppState.ink;font-weight:600;font-size:14px*AppState.scale;overflow:elide;vertical-alignment:center;}
+                if song.explicit: Rectangle {x:table.index-width+table.title-width - (AppState.browse-artwork ? 38px : 18px);y:parent.show-quality ? 6px : 14px;width:16px;height:16px;border-radius:2px;background:AppState.ink.with-alpha(0.18);Text {text:"E";color:AppState.ink;font-size:10px;font-weight:700;horizontal-alignment:center;vertical-alignment:center;}}
                 if table.detail && AppState.quality-info && song.quality!="": Text {x:table.index-width+(AppState.browse-artwork ? 40px : 0px);y:25px;height:16px;width:table.title-width - (AppState.browse-artwork ? 60px : 20px);text:song.quality;color:AppState.ink.with-alpha(AppState.light-theme ? 0.65 : 0.5);font-size:9.5px*AppState.scale;overflow:elide;vertical-alignment:center;}
                 if table.artist-width>0px: Text {x:table.index-width+table.title-width;width:table.artist-width - 12px;text:song.artist;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.4000) : 0.4000);font-size:12px*AppState.scale;overflow:elide;vertical-alignment:center;}
                 if table.album-width>0px: Text {x:table.duration-x - table.album-width;width:table.album-width - 12px;text:song.album;color:AppState.ink.with-alpha(AppState.light-theme ? max(0.65,0.4000) : 0.4000);font-size:12px*AppState.scale;overflow:elide;vertical-alignment:center;}

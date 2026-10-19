@@ -6,7 +6,8 @@ const TRACK_COLUMNS: &str = "s.id,s.path,s.title,s.artist,s.album,s.album_artist
     COALESCE(s.genre,''),s.duration,CASE WHEN s.artwork_url='DELETED' THEN '' ELSE COALESCE(NULLIF(s.artwork_preview_url,''),NULLIF(s.artwork_url,''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') END,
     CASE WHEN s.artwork_url='DELETED' THEN '' ELSE COALESCE(NULLIF(s.artwork_thumb_url,''),NULLIF(s.artwork_preview_url,''),NULLIF(s.artwork_url,''),(SELECT COALESCE(NULLIF(artwork_thumb_path,'DELETED'),NULLIF(artwork_path,'DELETED')) FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') END,
     COALESCE(s.format,''),COALESCE(s.sample_rate,0),COALESCE(s.bitrate,0),COALESCE(s.track_number,0),
-    CASE WHEN s.artwork_url='DELETED' THEN '' ELSE COALESCE(NULLIF(s.artwork_url,''),NULLIF(s.artwork_preview_url,''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') END";
+    CASE WHEN s.artwork_url='DELETED' THEN '' ELSE COALESCE(NULLIF(s.artwork_url,''),NULLIF(s.artwork_preview_url,''),(SELECT NULLIF(artwork_path,'DELETED') FROM album_artworks WHERE album_key=s.album_artist || ':' || s.album),'') END,
+    COALESCE(s.explicit_advisory,0)";
 
 fn read_track(row: &rusqlite::Row<'_>) -> rusqlite::Result<ffi::Track> {
     let format: String = row.get(10)?;
@@ -31,6 +32,7 @@ fn read_track(row: &rusqlite::Row<'_>) -> rusqlite::Result<ffi::Track> {
         artwork: row.get(8)?,
         artwork_thumb: row.get(9)?,
         artwork_original: row.get(14)?,
+        explicit: row.get(15)?,
         quality: quality.join(" | "),
         track_number: row.get(13)?,
     })

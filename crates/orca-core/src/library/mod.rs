@@ -20,6 +20,7 @@ pub struct LocalSong {
     pub track_number: Option<i32>,
     pub disc_number: Option<i32>,
     pub genre: Option<String>,
+    pub explicit: Option<bool>,
     pub duration: u32,
     pub artwork: Option<String>,
     pub artwork_thumb: Option<String>,
