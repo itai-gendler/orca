@@ -263,6 +263,31 @@ pub(super) fn verify(case: &mut UiCase) {
         swipe_rx.try_recv().unwrap(),
         Request::Command(crate::protocol::PlayerAction::Previous)
     ));
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(640.0, 300.0),
+        button: PointerEventButton::Left,
+    });
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(570.0, 304.0),
+    });
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(500.0, 307.0),
+    });
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(500.0, 307.0),
+        button: PointerEventButton::Left,
+    });
+    assert!(matches!(
+        swipe_rx.try_recv().unwrap(),
+        Request::Command(crate::protocol::PlayerAction::Next)
+    ));
+    assert!(swipe_rx.try_recv().is_err(), "one drag must skip only once");
+    assert!(!state.invoke_player_drag(20.0, 0.0));
+    assert!(!state.invoke_player_drag(110.0, 130.0));
+    assert!(
+        swipe_rx.try_recv().is_err(),
+        "short and vertical drags must not skip"
+    );
     screenshot(pixels, "full-player-like-and-playlist");
     state.set_lyrics_open(true);
     let lyric_refreshes = Rc::new(Cell::new(0));
@@ -285,6 +310,31 @@ pub(super) fn verify(case: &mut UiCase) {
     );
     state.set_lyrics_refreshing(false);
     screenshot(pixels, "full-player-lyrics-controls");
+    state.set_lyrics(
+        Rc::new(VecModel::from(crate::lyrics::parse(
+            "[00:01.00]First line\n[00:03.00]Second line",
+        )))
+        .into(),
+    );
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: slint::LogicalPosition::new(1000.0, 400.0),
+        button: PointerEventButton::Left,
+    });
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(880.0, 406.0),
+    });
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: slint::LogicalPosition::new(880.0, 406.0),
+        button: PointerEventButton::Left,
+    });
+    assert!(matches!(
+        swipe_rx.try_recv().unwrap(),
+        Request::Command(crate::protocol::PlayerAction::Next)
+    ));
+    state.set_lyrics(Default::default());
     window.set_size(slint::PhysicalSize::new(960, 820));
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);

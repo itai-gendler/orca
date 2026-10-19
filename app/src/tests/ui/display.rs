@@ -189,4 +189,29 @@ pub(super) fn verify(case: &mut UiCase) {
             "lyric repaint must not create backdrop seams"
         );
     }
+    window.set_size(slint::PhysicalSize::new(2400, 1350));
+    state.set_full_artwork(true);
+    state.set_full_player_background("color".into());
+    state.set_background_accent(slint::Color::from_rgb_u8(96, 42, 45));
+    let mut spacious = vec![slint::Rgb8Pixel::default(); 2400 * 1350];
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut spacious, 2400);
+    });
+    assert!(
+        state.get_player_cover_size() >= 400.0,
+        "wide lyric layout must give the artwork room to grow"
+    );
+    if std::env::var_os("ORCA_TEST_SCREENSHOTS").is_some() {
+        let bytes: Vec<u8> = spacious.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+        save_screenshot(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../target/slint/test-artifacts/ui/wide-color-player-smoke.png"),
+            &bytes,
+            2400,
+            1350,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+    }
+    window.set_size(slint::PhysicalSize::new(1920, 1080));
 }

@@ -3,6 +3,48 @@ import { AppState, LyricRender } from "state.slint";
 import { Icons } from "icons.slint";
 import { IconButton, PlaybackControls, SeekBar, VolumeControl, TextButton, AmbientBackground, CoverImage, ScrollMotion, ActionFocus } from "controls.slint";
 
+component PlayerDragArea inherits TouchArea {
+    callback tapped;
+    callback activity;
+    private property<float> start-x;
+    private property<float> start-y;
+    private property<bool> dragging;
+    pointer-event(event) => {
+        if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+            root.activity();
+            self.start-x = self.mouse-x / 1px;
+            self.start-y = self.mouse-y / 1px;
+            self.dragging = true;
+        }
+        if event.button == PointerEventButton.right && event.kind == PointerEventKind.down && AppState.now.path != "" {
+            AppState.keyboard-navigation = false;
+            AppState.menu(AppState.now.path, (self.absolute-position.x + self.mouse-x) / 1px, (self.absolute-position.y + self.mouse-y) / 1px);
+        }
+        if event.button == PointerEventButton.left && event.kind == PointerEventKind.up && self.dragging {
+            self.dragging = false;
+            if !AppState.player-drag((self.mouse-x / 1px) - self.start-x, (self.mouse-y / 1px) - self.start-y) {
+                AppState.player-swipe-offset = 0;
+            }
+        }
+    }
+    moved => {
+        root.activity();
+        if self.dragging && self.pressed {
+            let dx = (self.mouse-x / 1px) - self.start-x;
+            let dy = (self.mouse-y / 1px) - self.start-y;
+            if abs(dx) > abs(dy) * 1.3 {
+                AppState.player-swipe-offset = clamp(dx, -56, 56);
+            }
+        }
+    }
+    clicked => {
+        if abs((self.mouse-x / 1px) - self.start-x) < 8 && abs((self.mouse-y / 1px) - self.start-y) < 8 {
+            root.tapped();
+        }
+    }
+    scroll-event(event) => {root.activity();AppState.player-swipe(event.delta-x / 1px, event.delta-y / 1px);return accept;}
+}
+
 export component PlayerBar inherits Rectangle {
     background:transparent;
     Rectangle {x:0px;y:0px;height:1px;background:AppState.ink.with-alpha(0.1020);}
@@ -65,6 +107,7 @@ export component PlayerBar inherits Rectangle {
 }
 
 component LyricsViewport inherits Rectangle {
+    callback activity;
     in property<bool> dark;
     in property<length> font-size:32px;
     private property<color> ink:root.dark ? white : AppState.ink;
@@ -84,7 +127,7 @@ component LyricsViewport inherits Rectangle {
         function follow-current() {
             let offset=AppState.lyric-offset(max(0,AppState.active-line),AppState.lyric-layout-revision)*1px;
             let next=AppState.lyric-offset(max(0,AppState.active-line)+1,AppState.lyric-layout-revision)*1px;
-            motion.snap(-clamp(offset - self.height*0.36+min(next - offset,self.height*0.8)/2,0px,max(0px,self.content-height - self.height)));
+            motion.snap(-clamp(offset - self.height*0.45+min(next - offset,self.height*0.8)/2,0px,max(0px,self.content-height - self.height)));
         }
         function wheel-scroll(delta:length) {
             self.follow=false;resume-follow.restart();
@@ -122,8 +165,15 @@ component LyricsViewport inherits Rectangle {
                     Image {x:-parent.x;y:-parent.y;width:karaoke.width;height:karaoke.height;source:rendered.bitmap;colorize:root.dark ? transparent : root.ink;image-fit:fill;}
                 }
             }
-            TouchArea {clicked => {if line.time>=0 {AppState.seek(line.time);lyrics.follow=true;resume-follow.stop();}}
-                scroll-event(event)=>{lyrics.wheel-scroll(event.delta-y);return accept;}}
+            PlayerDragArea {activity=>{root.activity();}tapped => {if line.time>=0 {AppState.seek(line.time);lyrics.follow=true;resume-follow.stop();}}
+                scroll-event(event)=>{
+                    if abs(event.delta-x) > abs(event.delta-y) * 1.5 {
+                        AppState.player-swipe(event.delta-x / 1px,event.delta-y / 1px);
+                    } else {
+                        lyrics.wheel-scroll(event.delta-y);
+                    }
+                    return accept;
+                }}
         }
     }
     if AppState.lyrics.length==0: Rectangle {
@@ -206,6 +256,7 @@ component QualityBadge inherits Rectangle {
 export component FullPlayer inherits Rectangle {
     private property<color> ink:AppState.full-player-dark ? white : AppState.ink;
     private property<bool> compact-lyrics:AppState.lyrics-open && root.width<1100px;
+    private property<bool> spacious-lyrics:AppState.lyrics-open && root.width>=1600px && root.height>=900px;
     background:AppState.full-player-dark ? #090a0c : AppState.base;
     if AppState.full-player-background=="artwork": AmbientBackground {source:AppState.full-backdrop;strength:0.78;subtle:false;animate:false;}
     if AppState.full-player-background=="color": Rectangle {
@@ -215,33 +266,36 @@ export component FullPlayer inherits Rectangle {
         Rectangle {background:@linear-gradient(180deg,#090a0c22,transparent 45%,#090a0c44);}
     }
     // Consume all empty-space input; the library is separately disabled.
-    TouchArea {scroll-event(event) => {AppState.player-swipe(event.delta-x/1px,event.delta-y/1px);return accept;}}
+    PlayerDragArea {}
     IconButton {layer:"full";label:"Back";dark:AppState.full-player-dark;x:56px;y:52px;icon:Icons.back;round:true;outlined:true;clicked => {AppState.full-player=false;}}
     IconButton {layer:"full";label:"Lyrics";dark:AppState.full-player-dark;x:parent.width - 136px;y:52px;icon:Icons.lyrics;round:true;active:AppState.lyrics-open;clicked => {AppState.lyrics-open=!AppState.lyrics-open;if AppState.lyrics-open {AppState.queue-open=false;}}}
     IconButton {layer:"full";label:"Queue";dark:AppState.full-player-dark;x:parent.width - 88px;y:52px;icon:Icons.queue;round:true;active:AppState.queue-open;clicked => {AppState.queue-open=!AppState.queue-open;if AppState.queue-open {AppState.lyrics-open=false;AppState.command("queue-preview",0);}}}
     content := Rectangle {
         visible:!root.compact-lyrics;
         x:AppState.lyrics-open ? clamp(root.width*0.09,64px,176px) : (root.width - self.width)/2;
-        y:104px;width:AppState.lyrics-open ? min(390px,root.width*0.36) : min(560px,root.width - 112px);height:root.height - 176px;
+        y:104px;width:AppState.lyrics-open ? min(root.spacious-lyrics ? 460px : 390px,root.width*0.36) : min(560px,root.width - 112px);height:root.height - 176px;
         VerticalLayout {
             spacing:0;alignment:center;
             if AppState.full-artwork: Rectangle {
-                height:min(content.width,AppState.lyrics-open ? 340px : 396px,max(96px,content.height - (root.height<720px ? 240px : 320px)));
+                height:min(content.width,AppState.lyrics-open ? root.spacious-lyrics ? 420px : 340px : 396px,max(96px,content.height - (root.height<720px ? 240px : 320px)));
                 changed height=>{AppState.player-cover-size=self.height/1px;}
                 init=>{AppState.player-cover-size=self.height/1px;}
                 Rectangle {x:(parent.width - self.width)/2;y:0px;width:parent.height;height:parent.height;
                     CoverImage {x:AppState.player-swipe-offset*1px;y:0px;width:parent.width;height:parent.height;artwork:AppState.original-cover;missing:AppState.original-cover-missing;image-fit:cover;
                         animate x {duration:95ms;easing:ease-out;}}
-                    TouchArea {scroll-event(event)=>{if AppState.player-swipe(event.delta-x/1px,event.delta-y/1px) {return accept;}return reject;}}
+                    PlayerDragArea {}
                 }
             }
             Rectangle {height:root.height<720px ? 12px : 20px;}
             Text {text:AppState.now.title;color:root.ink;font-size:(root.height<720px ? 28px : AppState.lyrics-open ? 30px : 36px)*AppState.scale;font-weight:900;horizontal-alignment:center;overflow:elide;}
             Rectangle {height:root.height<720px ? 4px : 8px;}
-            Text {overflow:elide;text:AppState.now.artist;color:root.ink.with-alpha(0.8157);font-size:(root.height<720px ? 14px : AppState.lyrics-open ? 16px : 18px)*AppState.scale;horizontal-alignment:center;
-                TouchArea {enabled:AppState.now.artist!="";clicked=>{AppState.unfocus();AppState.full-player=false;AppState.view="artists";AppState.open-group(AppState.now.artist,"",AppState.now.artist);}}}
-            if AppState.now.album!="": Text {text:AppState.now.album;color:root.ink.with-alpha(0.7529);font-size:12px*AppState.scale;horizontal-alignment:center;overflow:elide;
-                TouchArea {clicked=>{AppState.unfocus();AppState.full-player=false;AppState.view="albums";AppState.open-group(AppState.now.album,AppState.now.album-artist,AppState.now.album);}}}
+            HorizontalLayout {height:24px*AppState.scale;spacing:8px;alignment:center;
+                Text {width:min(self.preferred-width,AppState.now.album=="" ? parent.width : parent.width*0.48);overflow:elide;text:AppState.now.artist;color:root.ink.with-alpha(0.8157);font-size:(root.height<720px ? 14px : AppState.lyrics-open ? 16px : 18px)*AppState.scale;vertical-alignment:center;
+                    TouchArea {enabled:AppState.now.artist!="";clicked=>{AppState.unfocus();AppState.full-player=false;AppState.view="artists";AppState.open-group(AppState.now.artist,"",AppState.now.artist);}}}
+                if AppState.now.album!="": Text {text:"·";color:root.ink.with-alpha(0.8);font-size:(root.height<720px ? 18px : AppState.lyrics-open ? 22px : 24px)*AppState.scale;vertical-alignment:center;}
+                if AppState.now.album!="": Text {width:min(self.preferred-width,parent.width*0.48);text:AppState.now.album;color:root.ink.with-alpha(0.7529);font-size:(root.height<720px ? 14px : AppState.lyrics-open ? 16px : 18px)*AppState.scale;vertical-alignment:center;overflow:elide;
+                    TouchArea {clicked=>{AppState.unfocus();AppState.full-player=false;AppState.view="albums";AppState.open-group(AppState.now.album,AppState.now.album-artist,AppState.now.album);}}}
+            }
             Rectangle {height:root.height<720px ? 8px : 16px;}
             if AppState.quality-info: Rectangle {height:22px;
                 QualityBadge {x:(parent.width - self.width)/2;text:AppState.now.quality;ink:root.ink;}
@@ -253,9 +307,9 @@ export component FullPlayer inherits Rectangle {
                 height:root.height<720px ? 44px : content.width>=384px ? 56px : AppState.lyrics-open ? 44px : 52px;
                 spacing:8px;
                 alignment:center;
-                if AppState.show-liked-songs: IconButton {layer:"full";label:AppState.liked ? "Unlike song" : "Like song";dark:AppState.full-player-dark;icon:AppState.liked ? Icons.heartFilled : Icons.heart;icon-size:20px;round:true;active:AppState.liked;active-icon-only:true;enabled:AppState.now.id>0;clicked=>{AppState.toggle-like();}}
-                PlaybackControls {layer:"full";dark:AppState.full-player-dark;large:!AppState.lyrics-open && root.height>=720px;prominent:root.height>=720px && content.width>=384px;width:self.prominent ? 288px : root.height<720px || AppState.lyrics-open ? 252px : 276px;}
-                IconButton {layer:"full";label:"Add to playlist";dark:AppState.full-player-dark;icon:Icons.playlistAdd;icon-size:20px;round:true;active:AppState.playlist-picker-open;enabled:AppState.now.id>0;clicked=>{if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
+                if AppState.show-liked-songs: IconButton {layer:"full";label:AppState.liked ? "Unlike song" : "Like song";dark:AppState.full-player-dark;icon:AppState.liked ? Icons.heartFilled : Icons.heart;icon-size:root.spacious-lyrics ? 22px : 20px;width:root.spacious-lyrics ? 48px : 40px;height:self.width;round:true;active:AppState.liked;active-icon-only:true;enabled:AppState.now.id>0;clicked=>{AppState.toggle-like();}}
+                PlaybackControls {layer:"full";dark:AppState.full-player-dark;large:!AppState.lyrics-open && root.height>=720px;prominent:root.height>=720px && content.width>=384px;width:root.spacious-lyrics ? 300px : self.prominent ? 288px : root.height<720px || AppState.lyrics-open ? 252px : 276px;}
+                IconButton {layer:"full";label:"Add to playlist";dark:AppState.full-player-dark;icon:Icons.playlistAdd;icon-size:root.spacious-lyrics ? 22px : 20px;width:root.spacious-lyrics ? 48px : 40px;height:self.width;round:true;active:AppState.playlist-picker-open;enabled:AppState.now.id>0;clicked=>{if AppState.playlist-picker-open {AppState.playlist-picker-open=false;} else {AppState.playlist-action("open-current","");AppState.queue-open=false;}}}
             }
         }
     }
@@ -270,7 +324,7 @@ export component FullPlayer inherits Rectangle {
         if AppState.full-artwork: Rectangle {x:0px;y:0px;width:parent.art-size;height:parent.art-size;
             CoverImage {x:AppState.player-swipe-offset*1px;width:parent.width;height:parent.height;artwork:AppState.original-cover;missing:AppState.original-cover-missing;image-fit:cover;
                 animate x {duration:95ms;easing:ease-out;}}
-            TouchArea {scroll-event(event)=>{if AppState.player-swipe(event.delta-x/1px,event.delta-y/1px) {return accept;}return reject;}}
+            PlayerDragArea {}
         }
         Text {x:parent.details-x;y:0px;width:parent.width - self.x;height:36px;text:AppState.now.title;color:root.ink;font-size:26px*AppState.scale;font-weight:900;overflow:elide;vertical-alignment:center;}
         Text {x:parent.details-x;y:38px;width:parent.width - self.x;height:21px;text:AppState.now.artist;color:root.ink.with-alpha(0.82);font-size:15px*AppState.scale;overflow:elide;vertical-alignment:center;}

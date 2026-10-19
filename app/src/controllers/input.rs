@@ -7,6 +7,7 @@ use crate::{
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
+    rc::Rc,
     time::{Duration, Instant},
 };
 pub(crate) fn play_request(ui: &OrcaWindow, path: String) -> Request {
@@ -88,7 +89,31 @@ impl PlayerSwipe {
 pub(crate) fn install_player_swipe(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<Request>) {
     let weak = ui.as_weak();
     let tracker = RefCell::new(PlayerSwipe::default());
-    let motion_timer = slint::Timer::default();
+    let motion_timer = Rc::new(slint::Timer::default());
+    let skip = Rc::new(move |action: PlayerAction| {
+        let Some(ui) = weak.upgrade() else {
+            return;
+        };
+        let state = ui.global::<AppState>();
+        state.set_player_swipe_offset(if action == PlayerAction::Next {
+            -20.0
+        } else {
+            20.0
+        });
+        let weak = weak.clone();
+        motion_timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(85),
+            move || {
+                if let Some(ui) = weak.upgrade() {
+                    ui.global::<AppState>().set_player_swipe_offset(0.0);
+                }
+            },
+        );
+        let _ = tx.send(Request::Command(action));
+    });
+    let weak = ui.as_weak();
+    let wheel_skip = skip.clone();
     ui.global::<AppState>().on_player_swipe(move |dx, dy| {
         let Some(ui) = weak.upgrade() else {
             return false;
@@ -102,24 +127,32 @@ pub(crate) fn install_player_swipe(ui: &OrcaWindow, tx: std::sync::mpsc::Sender<
         }
         let (handled, action) = tracker.borrow_mut().update(Instant::now(), dx, dy);
         if let Some(action) = action {
-            state.set_player_swipe_offset(if action == PlayerAction::Next {
-                -20.0
-            } else {
-                20.0
-            });
-            let weak = weak.clone();
-            motion_timer.start(
-                slint::TimerMode::SingleShot,
-                Duration::from_millis(85),
-                move || {
-                    if let Some(ui) = weak.upgrade() {
-                        ui.global::<AppState>().set_player_swipe_offset(0.0);
-                    }
-                },
-            );
-            let _ = tx.send(Request::Command(action));
+            wheel_skip(action);
         }
         handled
+    });
+    let weak = ui.as_weak();
+    ui.global::<AppState>().on_player_drag(move |dx, dy| {
+        let Some(ui) = weak.upgrade() else {
+            return false;
+        };
+        let state = ui.global::<AppState>();
+        if state.get_now().path.is_empty()
+            || state.get_queue_open()
+            || state.get_playlist_picker_open()
+            || !dx.is_finite()
+            || !dy.is_finite()
+            || dx.abs() < 85.0
+            || dx.abs() < dy.abs() * 1.3
+        {
+            return false;
+        }
+        skip(if dx < 0.0 {
+            PlayerAction::Next
+        } else {
+            PlayerAction::Previous
+        });
+        true
     });
 }
 

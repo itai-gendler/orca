@@ -23,6 +23,11 @@ pub(super) fn verify(case: &mut UiCase) {
         toggle_pixels > 100,
         "settings toggle must remain inside its control column"
     );
+    state.set_search("Full player background".into());
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "full-player-background-setting");
     state.set_search("Visuals".into());
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
@@ -33,6 +38,7 @@ pub(super) fn verify(case: &mut UiCase) {
             && !state.get_compact_artwork()
             && !state.get_full_artwork()
             && !state.get_blurred_background()
+            && state.get_full_player_background() == "off"
     );
     assert!(!state.get_grid());
     assert_eq!(
@@ -57,6 +63,7 @@ pub(super) fn verify(case: &mut UiCase) {
             && state.get_compact_artwork()
             && state.get_full_artwork()
             && state.get_blurred_background()
+            && state.get_full_player_background() == "artwork"
     );
     state.set_search("Keyboard shortcuts".into());
     click(window, 210.0, 102.0);

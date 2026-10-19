@@ -202,11 +202,11 @@ pub(super) fn verify(case: &mut UiCase) {
         renderer.render(pixels, 1280);
     });
     assert!(
-        pixels[350 * 1280 + 700].b > 150,
+        pixels[420 * 1280 + 700].b > 150,
         "following must immediately advance past the oversized lyric row"
     );
     assert!(
-        pixels[350 * 1280 + 1215].b > 150,
+        pixels[420 * 1280 + 1215].b > 150,
         "lyrics viewport must have no scrollbar overlay"
     );
     assert!(

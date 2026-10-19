@@ -12,7 +12,7 @@ mod themes;
 use crate::controllers::collections::{collection_seed_matches, stage_collection_draft};
 use crate::controllers::preferences::register_font;
 use crate::platform_integration::set_background_playback;
-use crate::presentation::{reset_empty_player, theme_accent};
+use crate::presentation::{player_background_tone, reset_empty_player, theme_accent};
 use crate::*;
 use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
 use slint::platform::{Platform, PlatformError, PointerEventButton, WindowAdapter, WindowEvent};
@@ -25,6 +25,17 @@ fn light_accents_preserve_color_and_dark_accents_stay_unchanged() {
     let light = theme_accent([240, 200, 130], true);
     assert!(light[0] < 190 && light[0] > light[1] && light[1] > light[2]);
     assert_eq!(theme_accent([40, 80, 100], true), [40, 80, 100]);
+}
+#[test]
+fn player_background_tones_keep_pale_and_dark_artwork_legible() {
+    let pale = player_background_tone([240, 202, 205]);
+    assert!(pale[0] > pale[1] && pale[1] < 75 && pale[0] <= 112);
+    let saturated = player_background_tone([232, 45, 18]);
+    assert!(saturated[0] > saturated[1] * 2 && saturated[0] <= 112);
+    let dark = player_background_tone([32, 66, 84]);
+    assert!(dark[2] > dark[0] && dark[2] >= 72);
+    let neutral = player_background_tone([220, 220, 220]);
+    assert_eq!(neutral, [112; 3]);
 }
 #[test]
 fn collection_preview_does_not_cancel_fetch_but_manual_cover_changes_do() {

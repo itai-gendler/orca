@@ -68,7 +68,7 @@ pub(super) fn verify(case: &mut UiCase) {
             .borrow_mut()
             .push((key.to_string(), secondary.to_string()))
     });
-    click(window, 640.0, 352.0);
+    click(window, 604.0, 355.0);
     assert!(!state.get_full_player());
     assert_eq!(state.get_view(), "artists");
     assert_eq!(
@@ -79,7 +79,7 @@ pub(super) fn verify(case: &mut UiCase) {
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
-    click(window, 640.0, 370.0);
+    click(window, 670.0, 355.0);
     assert!(!state.get_full_player());
     assert_eq!(state.get_view(), "albums");
     assert_eq!(
@@ -92,7 +92,7 @@ pub(super) fn verify(case: &mut UiCase) {
         renderer.render(pixels, 1280);
     });
     screenshot(pixels, "light-full-player-smoke");
-    click(window, 640.0, 514.0);
+    click(window, 604.0, 517.0);
     assert!(
         !state.get_full_player(),
         "full artwork artist link must leave the player"
@@ -102,7 +102,7 @@ pub(super) fn verify(case: &mut UiCase) {
     window.draw_if_needed(|renderer| {
         renderer.render(pixels, 1280);
     });
-    click(window, 640.0, 533.0);
+    click(window, 670.0, 517.0);
     assert!(
         !state.get_full_player(),
         "full artwork album link must leave the player"
