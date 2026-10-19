@@ -100,9 +100,6 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
             [LIKES_MIGRATION],
         )?;
     }
-    if version != MIN_READER_VERSION {
-        tx.pragma_update(None, "user_version", MIN_READER_VERSION)?;
-    }
     let folder_rules_applied: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM orca_schema_migrations WHERE revision=?1)",
         [FOLDER_RULES_MIGRATION],
@@ -158,6 +155,9 @@ fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     tx.execute_batch(
         "CREATE VIEW IF NOT EXISTS active_songs AS SELECT * FROM songs WHERE library_visible=1;",
     )?;
+    if version != MIN_READER_VERSION {
+        tx.pragma_update(None, "user_version", MIN_READER_VERSION)?;
+    }
     tx.commit()
 }
 

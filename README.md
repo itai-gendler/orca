@@ -100,7 +100,7 @@ Thank you for trying Orca and helping it grow!
 
 - [Slint](https://slint.dev/): native interface
 - [Rodio](https://github.com/RustAudio/rodio) and [Lofty](https://github.com/Serial-ATA/lofty-rs): audio and metadata
-- [LRCLIB](https://lrclib.net/): lyrics
+- [LRC.RED](https://lrc.red/) and [LRCLIB](https://lrclib.net/): lyrics
 - [iTunes](https://www.apple.com/itunes/), [Deezer](https://www.deezer.com/), [MusicBrainz](https://musicbrainz.org/) and [Cover Art Archive](https://coverartarchive.org/): artwork lookup
 
 ## License

@@ -473,11 +473,27 @@ pub(super) fn verify(case: &mut UiCase) {
         renderer.render(pixels, 1280);
     });
     screenshot(pixels, "album-editor-preview-smoke");
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(500.0, 330.0),
+    });
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "album-editor-cover-actions");
     state.set_scale(1.0);
     staged["draft_id"] = serde_json::json!("old-editor");
     assert!(!stage_collection_draft(ui, &staged));
     state.set_collection_dialog(false);
     assert!(!stage_collection_draft(ui, &original));
+    state.set_metadata_open(true);
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: slint::LogicalPosition::new(200.0, 120.0),
+    });
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "metadata-editor-cover-actions");
+    state.set_metadata_open(false);
     state.set_full_player(false);
     state.set_detail_key("".into());
     state.set_view("artists".into());

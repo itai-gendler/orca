@@ -5,6 +5,93 @@ pub(super) fn verify(case: &mut UiCase) {
     let window = &case.window;
     let state = ui.global::<AppState>();
     let pixels = &mut case.pixels;
+    let (font_tx, _font_rx) = std::sync::mpsc::channel();
+    controllers::preferences::install(ui, font_tx, Rc::new(Timer::default()));
+    state.set_font_path("".into());
+    state.set_font_family("".into());
+    state.set_view("settings".into());
+    state.set_search("Font preset".into());
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    state.set_font_path("C:/Fonts/My Font.ttf".into());
+    state.set_custom_font_family("My Font".into());
+    state.set_font_family("My Font".into());
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "selected-custom-font-setting");
+    window.set_size(slint::PhysicalSize::new(500, 820));
+    let mut narrow = vec![slint::Rgb8Pixel::default(); 500 * 820];
+    window.draw_if_needed(|renderer| {
+        renderer.render(&mut narrow, 500);
+    });
+    let bytes: Vec<u8> = narrow.iter().flat_map(|p| [p.r, p.g, p.b]).collect();
+    save_screenshot(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/slint/test-artifacts/ui/selected-custom-font-setting-narrow.png"),
+        &bytes,
+        500,
+        820,
+        image::ColorType::Rgb8,
+    )
+    .unwrap();
+    window.set_size(slint::PhysicalSize::new(1280, 820));
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    assert_eq!(state.get_font_family(), "My Font");
+    assert_eq!(state.get_font_path(), "C:/Fonts/My Font.ttf");
+    state.invoke_font_action("system".into());
+    assert_eq!(state.get_font_family(), "");
+    assert_eq!(state.get_custom_font_family(), "My Font");
+    assert_eq!(state.get_font_path(), "C:/Fonts/My Font.ttf");
+    let saved = controllers::preferences::settings(ui);
+    assert_eq!(saved.font_family, "");
+    assert_eq!(saved.font_path, "C:/Fonts/My Font.ttf");
+    window.draw_if_needed(|renderer| {
+        renderer.render(pixels, 1280);
+    });
+    screenshot(pixels, "system-font-with-custom-option");
+    state.invoke_font_action("custom".into());
+    assert_eq!(state.get_font_family(), "My Font");
+    state.invoke_font_action("preset".into());
+    assert_eq!(state.get_font_family(), "Plus Jakarta Sans");
+    assert_eq!(state.get_font_path(), "C:/Fonts/My Font.ttf");
+    state.invoke_font_action("remove".into());
+    assert_eq!(state.get_font_family(), "Plus Jakarta Sans");
+    assert_eq!(state.get_font_path(), "");
+    assert_eq!(state.get_custom_font_family(), "");
+    let font_file =
+        std::env::temp_dir().join(format!("orca-font-setting-{}.ttf", std::process::id()));
+    std::fs::write(
+        &font_file,
+        include_bytes!("../../../ui/assets/fonts/PlusJakartaSans-Bold.ttf"),
+    )
+    .unwrap();
+    let mut persisted = controllers::preferences::settings(ui);
+    persisted.font_family = "".into();
+    persisted.font_path = font_file.to_string_lossy().into_owned();
+    controllers::preferences::apply_settings(ui, persisted);
+    assert_eq!(state.get_font_family(), "");
+    assert_eq!(state.get_custom_font_family(), "Plus Jakarta Sans");
+    assert_eq!(state.get_font_path(), font_file.to_string_lossy());
+    state.invoke_font_action("remove".into());
+    std::fs::remove_file(font_file).unwrap();
+    state.invoke_font_action("preset".into());
+    state.set_search("".into());
+    let current = controllers::preferences::settings(ui);
+    let older = serde_json::from_str(r#"{"blurred_background":false}"#).unwrap();
+    controllers::preferences::apply_settings(ui, older);
+    assert_eq!(state.get_full_player_background(), "off");
+    assert!(
+        !state.get_replaygain(),
+        "older settings should keep ReplayGain off"
+    );
+    controllers::preferences::apply_settings(ui, current.clone());
+    state.set_replaygain(true);
+    assert!(controllers::preferences::settings(ui).replaygain);
+    controllers::preferences::apply_settings(ui, current);
     state.set_light_theme(false);
     state.set_view("settings".into());
     window.draw_if_needed(|renderer| {

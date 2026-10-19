@@ -29,7 +29,7 @@ export component TrackMenu inherits Rectangle {
         Rectangle {height:1px;background:AppState.ink.with-alpha(0.0706);}
         first:=MenuItem {text:"Add to queue";triggered=>{AppState.queue-action("add",AppState.menu-song.path,"");}}
         MenuItem {text:"Edit metadata";triggered=>{AppState.metadata-action("load",AppState.menu-song.path);}}
-        MenuItem {text:"Fetch cover online";triggered=>{AppState.metadata-action("load-fetch-cover",AppState.menu-song.path);}}
+        MenuItem {text:"Find cover online";triggered=>{AppState.metadata-action("load-fetch-cover",AppState.menu-song.path);}}
         if root.can-refresh-lyrics: MenuItem {text:"Refresh lyrics";triggered=>{AppState.lyrics-refreshing=true;AppState.refresh-lyrics();}}
         if root.in-playlist: MenuItem {text:AppState.detail-key=="liked" ? "Remove from Liked Songs" : "Remove from playlist";triggered=>{AppState.playlist-action("remove-menu","");}}
     }
@@ -132,7 +132,7 @@ export component CollectionMenu inherits Rectangle {
         first:=MenuItem {text:"Edit details";triggered=>{AppState.collection-action("name");}}
         MenuItem {text:"Change cover";triggered=>{AppState.collection-action("cover");}}
         MenuItem {text:"Remove cover";triggered=>{AppState.collection-action("remove-cover");}}
-        if AppState.collection-kind=="artists" || AppState.collection-kind=="albums": MenuItem {text:"Fetch cover online";triggered=>{AppState.collection-action("fetch-cover");}}
+        if AppState.collection-kind=="artists" || AppState.collection-kind=="albums": MenuItem {text:"Find cover online";triggered=>{AppState.collection-action("fetch-cover");}}
         if root.playlist-detail: MenuItem {text:"Export playlist";triggered=>{AppState.collection-menu-open=false;AppState.playlist-action("export",AppState.collection-group.key);}}
         if root.playlist-detail: MenuItem {text:"Delete playlist";triggered=>{AppState.collection-menu-open=false;AppState.playlist-action("delete",AppState.collection-group.key);}}
     }
