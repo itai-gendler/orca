@@ -1,0 +1,13 @@
+scenarioKinds:
+- id: primary
+  name: Primary
+  description: An ordinary supported outcome.
+- id: validation
+  name: Validation
+  description: Invalid input is rejected before the requested change.
+- id: edge
+  name: Edge
+  description: Unavailable files, conflicts or external failures have distinct outcomes.
+- id: background
+  name: Background
+  description: Behavior initiated by the product without a listener action.
